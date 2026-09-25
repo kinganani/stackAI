@@ -1,74 +1,114 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
-
-const quarters = ["Assigamé", "Hedzranawoé", "Port de pêche", "Bè", "Agoè", "Déckon", "Hanoukopé", "Tokoin"];
+import { api } from "../api.js";
+import { useAuth } from "../AuthContext.jsx";
+import { QUARTIERS, findQuartier } from "../quartiers.js";
+import { IMAGES, fieldClass } from "../ui.js";
 
 export default function RegisterPage() {
-  const navigate = useNavigate();
-  const [role, setRole] = useState("buyer");
+  const { setSession } = useAuth();
+  const nav = useNavigate();
+  const [params] = useSearchParams();
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
+    password: "",
+    password_confirm: "",
+    role: params.get("role") === "seller" ? "seller" : "buyer",
+    quartier: "Assigamé",
+    buyer_type: "household",
+  });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const geo = useMemo(() => findQuartier(form.quartier), [form.quartier]);
 
-  function onSubmit(event) {
-    event.preventDefault();
-    navigate(role === "seller" ? "/scan" : "/marche");
+  function set(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const data = await api.register({ ...form, lat: geo.lat, lng: geo.lng, radius_km: 15 });
+      setSession(data);
+      nav(data.profile.role === "seller" ? "/scan" : "/marche", { replace: true });
+    } catch (err) {
+      setError(err.message || "Inscription impossible.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-10">
-      <form onSubmit={onSubmit} className="max-w-lg mx-auto bg-surface-container-lowest rounded-2xl border border-[#e2e8f0] p-6 flex flex-col gap-4 shadow-[0_2px_8px_-2px_rgba(30,82,63,0.08)]">
-        <Link to="/" className="inline-flex"><Logo /></Link>
-        <h1 className="font-headline-lg text-headline-lg">Créer le compte</h1>
-        <p className="font-body-md text-on-surface-variant">Un utilisateur, un seul rôle. Il reste fixé après l’inscription.</p>
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            ["seller", "storefront", "Vendeur", "Déclarer un stock en souffrance"],
-            ["buyer", "shopping_bag", "Acheteur", "Réserver dans mon rayon"],
-          ].map(([id, icon, title, text]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setRole(id)}
-              className={`text-left rounded-xl p-3 border ${role === id ? "bg-primary-container text-on-primary border-primary-container" : "bg-surface border-[#e2e8f0] text-on-surface"}`}
-            >
-              <span className="material-symbols-outlined">{icon}</span>
-              <div className="font-label-lg mt-1">{title}</div>
-              <div className={`font-body-sm text-body-sm ${role === id ? "text-primary-fixed" : "text-on-surface-variant"}`}>{text}</div>
-            </button>
-          ))}
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      <div className="relative hidden lg:block">
+        <img src={IMAGES.mangue} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-primary/70" />
+        <div className="relative h-full flex items-end p-space-2xl text-on-primary">
+          <h1 className="font-headline-lg">Nom, quartier, téléphone — puis le marché du rayon s’ouvre.</h1>
         </div>
-        <label className="flex flex-col gap-1 font-label-md">Nom
-          <input required name="name" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3" placeholder="Afi Mensah" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">Email
-          <input required type="email" name="email" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3" placeholder="afi@marche.tg" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">Mot de passe
-          <input required type="password" minLength={8} name="password" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3" placeholder="8 caractères minimum" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">Quartier
-          <select name="quarter" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 bg-surface">
-            {quarters.map((q) => <option key={q}>{q}</option>)}
-          </select>
-        </label>
-        {role === "buyer" ? (
-          <label className="flex flex-col gap-1 font-label-md">Type d’acheteur
-            <select name="buyerType" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 bg-surface">
-              <option>Restaurateur / maquis</option>
-              <option>Cantine</option>
-              <option>Ménage</option>
-              <option>Transformateur</option>
+      </div>
+      <form onSubmit={submit} className="px-margin py-space-xl max-w-lg mx-auto w-full">
+        <Logo />
+        <p className="font-headline-lg text-primary mt-space-lg mb-space-md">Créer un compte</p>
+        {error && <p className="mb-space-md text-on-error-container bg-error-container rounded-xl px-space-md py-space-sm font-body-sm">{error}</p>}
+        <div className="grid grid-cols-2 gap-space-sm mb-space-md">
+          <button type="button" onClick={() => set("role", "seller")} className={`h-11 rounded-xl font-label-md ${form.role === "seller" ? "bg-primary text-on-primary" : "bg-surface-container-high"}`}>
+            Producteur
+          </button>
+          <button type="button" onClick={() => set("role", "buyer")} className={`h-11 rounded-xl font-label-md ${form.role === "buyer" ? "bg-primary text-on-primary" : "bg-surface-container-high"}`}>
+            Acheteur
+          </button>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-space-md">
+          <Field label="Prénom" value={form.first_name} onChange={(v) => set("first_name", v)} />
+          <Field label="Nom" value={form.last_name} onChange={(v) => set("last_name", v)} />
+        </div>
+        <Field label="Email" type="email" value={form.email} onChange={(v) => set("email", v)} />
+        <Field label="Téléphone" value={form.phone} onChange={(v) => set("phone", v)} />
+        <label className="font-label-md">Quartier</label>
+        <select value={form.quartier} onChange={(e) => set("quartier", e.target.value)} className={`${fieldClass} mt-space-xs mb-space-md`}>
+          {QUARTIERS.map((q) => (
+            <option key={q.name}>{q.name}</option>
+          ))}
+        </select>
+        {form.role === "buyer" && (
+          <>
+            <label className="font-label-md">Type d’acheteur</label>
+            <select value={form.buyer_type} onChange={(e) => set("buyer_type", e.target.value)} className={`${fieldClass} mt-space-xs mb-space-md`}>
+              <option value="household">Ménage</option>
+              <option value="restaurant">Maquis / restaurant</option>
+              <option value="canteen">Cantine</option>
+              <option value="processor">Transformateur</option>
             </select>
-          </label>
-        ) : (
-          <label className="flex flex-col gap-1 font-label-md">Alias Mobile Money
-            <input name="momo" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3" placeholder="Flooz • Afi M." />
-          </label>
+          </>
         )}
-        <button type="submit" className="h-12 rounded-xl bg-primary text-on-primary font-label-lg">
-          {role === "seller" ? "Publier mon premier lot" : "Voir les offres près de moi"}
+        <Field label="Mot de passe" type="password" value={form.password} onChange={(v) => set("password", v)} />
+        <Field label="Confirmation" type="password" value={form.password_confirm} onChange={(v) => set("password_confirm", v)} />
+        <button disabled={busy} className="w-full h-12 rounded-xl bg-secondary text-on-secondary font-label-lg mt-space-sm">
+          {busy ? "Création…" : "S’inscrire"}
         </button>
-        <p className="font-body-sm text-on-surface-variant">Déjà inscrit ? <Link className="text-primary font-bold" to="/connexion">Connexion</Link></p>
+        <p className="mt-space-md font-body-sm text-on-surface-variant">
+          Déjà inscrit ?{" "}
+          <Link className="text-secondary font-bold" to="/connexion">
+            Connexion
+          </Link>
+        </p>
       </form>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, type = "text" }) {
+  return (
+    <div className="mb-space-md">
+      <label className="font-label-md">{label}</label>
+      <input type={type} required value={value} onChange={(e) => onChange(e.target.value)} className={`${fieldClass} mt-space-xs`} />
     </div>
   );
 }

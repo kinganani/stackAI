@@ -1,49 +1,85 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
+import { api } from "../api.js";
+import { useAuth } from "../AuthContext.jsx";
+import { IMAGES, fieldClass } from "../ui.js";
 
 export default function LoginPage() {
-  const navigate = useNavigate();
+  const { setSession } = useAuth();
+  const nav = useNavigate();
+  const loc = useLocation();
+  const [params] = useSearchParams();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const seller = params.get("role") === "seller";
 
-  function onSubmit(event) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const email = String(data.get("email") || "");
-    const password = String(data.get("password") || "");
-    if (!email.includes("@") || password.length < 4) {
-      setError("Email ou mot de passe incorrect.");
-      return;
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const fd = new FormData(e.currentTarget);
+      const data = await api.login({
+        email: String(fd.get("email") || email).trim().toLowerCase(),
+        password: String(fd.get("password") || password),
+      });
+      setSession(data);
+      const from = loc.state?.from;
+      if (from) nav(from, { replace: true });
+      else nav(data.profile.role === "seller" ? "/lots" : "/marche", { replace: true });
+    } catch (err) {
+      setError(err.message || "Connexion impossible.");
+    } finally {
+      setBusy(false);
     }
-    navigate("/marche");
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
-      <form onSubmit={onSubmit} className="w-full max-w-md bg-surface-container-lowest rounded-2xl border border-[#e2e8f0] shadow-[0_10px_24px_-4px_rgba(30,82,63,0.14)] p-6 flex flex-col gap-4">
-        <Link to="/" className="inline-flex"><Logo /></Link>
-        <h1 className="font-headline-lg text-headline-lg text-on-surface">Connexion</h1>
-        <p className="font-body-md text-on-surface-variant">Pour la démo, entre directement avec un rôle. Le compte ne change pas de rôle ensuite.</p>
-        <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => navigate("/scan")} className="h-12 rounded-xl bg-primary-container text-on-primary font-label-md">Vendeur</button>
-          <button type="button" onClick={() => navigate("/marche")} className="h-12 rounded-xl border-[1.5px] border-primary text-primary font-label-md">Acheteur</button>
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
+      <div className="relative hidden lg:block">
+        <img src={seller ? IMAGES.tomate : IMAGES.fruit} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-primary/75" />
+        <div className="relative h-full flex flex-col justify-end p-space-2xl text-on-primary">
+          <p className="font-label-sm uppercase tracking-widest text-primary-fixed">LocalMatch · Lomé</p>
+          <h1 className="font-headline-lg mt-space-sm">
+            {seller ? "Publiez un lot avant la fin de fenêtre." : "Les lots du rayon, scorés pour vous."}
+          </h1>
         </div>
-        {error && (
-          <p className="rounded-xl bg-error-container text-on-error-container px-3 py-2 font-body-sm">{error}</p>
-        )}
-        <label className="flex flex-col gap-1 font-label-md">
-          Email
-          <input name="email" type="email" placeholder="afi.mensah@localmatch.tg" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 font-body-md focus:outline-none focus:ring-2 focus:ring-[#2b7057]" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">
-          Mot de passe
-          <input name="password" type="password" placeholder="••••••••" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 font-body-md focus:outline-none focus:ring-2 focus:ring-[#2b7057]" />
-        </label>
-        <button type="submit" className="h-12 rounded-xl bg-primary text-on-primary font-label-lg">Entrer sur le marché</button>
-        <p className="font-body-sm text-on-surface-variant">
-          Pas encore de compte ? <Link to="/inscription" className="text-primary font-bold">Choisir un rôle</Link>
-        </p>
-      </form>
+      </div>
+      <div className="flex items-center justify-center px-margin py-space-2xl">
+        <form onSubmit={submit} className="w-full max-w-md">
+          <Logo />
+          <p className="font-headline-lg text-primary mt-space-lg">Connexion</p>
+          <p className="font-body-md text-on-surface-variant mb-space-lg">
+            {seller ? "Espace producteur / vendeur" : params.get("role") === "buyer" ? "Espace acheteur" : "Accès LocalMatch"}
+          </p>
+          {error && <p className="mb-space-md text-error font-body-sm bg-error-container text-on-error-container rounded-xl px-space-md py-space-sm">{error}</p>}
+          <label className="font-label-md">Email</label>
+          <input name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} className={`${fieldClass} mt-space-xs mb-space-md`} />
+          <label className="font-label-md">Mot de passe</label>
+          <input name="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={`${fieldClass} mt-space-xs mb-space-lg`} />
+          <button disabled={busy} className="w-full h-12 rounded-xl bg-primary text-on-primary font-label-lg disabled:opacity-60">
+            {busy ? "Connexion…" : "Entrer"}
+          </button>
+          <p className="mt-space-md font-body-sm text-on-surface-variant">
+            Pas de compte ?{" "}
+            <Link className="text-secondary font-bold" to={`/inscription${seller ? "?role=seller" : ""}`}>
+              Inscription
+            </Link>
+          </p>
+          <div className="mt-space-lg rounded-xl bg-surface-container-low p-space-md font-body-sm text-on-surface-variant">
+            <p className="font-label-md text-on-surface mb-space-xs">Comptes démo</p>
+            Producteur <code>afi@localmatch.tg</code>
+            <br />
+            Acheteur <code>maquis@localmatch.tg</code>
+            <br />
+            Mot de passe <code>Fraislink1!</code>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

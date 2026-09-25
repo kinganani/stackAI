@@ -1,94 +1,75 @@
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
-
-const steps = [
-  {
-    n: "1",
-    to: "/scan",
-    title: "Déclarer",
-    text: "Photo, quartier, heures restantes. Le lot est en ligne en moins de 30 secondes.",
-  },
-  {
-    n: "2",
-    to: "/marche",
-    title: "Matcher",
-    text: "Seuls les acheteurs dans le rayon voient l’offre, avec un score expliqué.",
-  },
-  {
-    n: "3",
-    to: "/rdv",
-    title: "Collecter",
-    text: "Adresse du stand en grand, lien Maps, timer. Le stock ne part pas deux fois.",
-  },
-];
+import { useAuth } from "../AuthContext.jsx";
+import { IMAGES } from "../ui.js";
 
 export default function HomePage() {
+  const { isAuth, isSeller } = useAuth();
+  const next = isAuth ? (isSeller ? "/lots" : "/marche") : "/connexion";
+
   return (
-    <div className="min-h-screen bg-background text-on-surface font-body-md">
-      <header className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2">
-        <Link to="/" className="flex items-center gap-2 shrink-0 min-w-0">
-          <Logo />
-        </Link>
-        <Link to="/connexion" className="h-11 px-4 rounded-xl bg-primary text-on-primary font-label-lg inline-flex items-center">
-          Entrer
-        </Link>
+    <div className="min-h-screen bg-background text-on-surface">
+      <header className="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]">
+        <div className="h-16 max-w-7xl mx-auto px-margin flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-space-sm">
+            <Logo />
+          </Link>
+          <div className="flex items-center gap-space-sm">
+            <Link to="/connexion" className="hidden sm:inline font-label-lg text-primary px-space-md py-space-xs">
+              Connexion
+            </Link>
+            <Link to="/inscription" className="h-10 px-space-lg rounded-lg bg-secondary text-on-secondary font-label-lg inline-flex items-center">
+              Inscription
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
-        <section className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6 items-stretch py-6 sm:py-10">
-          <div className="flex flex-col justify-center">
-            <Logo hero />
-            <p className="mt-4 font-label-sm uppercase tracking-wide text-secondary">Hackathon • denrées périssables</p>
-            <h1 className="mt-3 font-headline-xl text-[32px] sm:text-headline-xl leading-tight text-primary font-extrabold tracking-tight max-w-xl">
-              Le stock part avant qu’il ne tourne.
-            </h1>
-            <p className="mt-4 font-body-lg text-body-lg text-on-surface-variant max-w-xl">
-              LocalMatch relie un cageot encore frais à l’acheteur assez proche pour venir le chercher. Le prix suit les heures qui restent.
-            </p>
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <Link to="/marche" className="h-12 px-5 rounded-xl bg-primary-container text-on-primary font-label-lg inline-flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined">storefront</span>
-                Voir les offres près de moi
-              </Link>
-              <Link to="/scan" className="h-12 px-5 rounded-xl border-[1.5px] border-primary text-primary font-label-lg inline-flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined">photo_camera</span>
-                Déclarer un lot
-              </Link>
-            </div>
-          </div>
-
-          <aside className="rounded-2xl bg-primary text-on-primary p-6 flex flex-col justify-between min-h-[240px]">
-            <div>
-              <p className="font-label-sm uppercase tracking-wider text-primary-fixed">Lot en fenêtre</p>
-              <p className="mt-2 font-headline-lg text-headline-lg font-extrabold">Tomates de Kovié</p>
-              <p className="mt-1 text-primary-fixed font-body-md">Assigamé • 1,2 km • encore 14 h</p>
-            </div>
-            <div className="mt-6 flex items-end justify-between gap-3">
-              <div>
-                <p className="font-price-display text-[28px] font-extrabold leading-none">8 500 <span className="text-base font-bold">FCFA</span></p>
-                <p className="mt-1 text-primary-fixed line-through font-body-sm">16 000 FCFA</p>
-              </div>
-              <Link to="/reservation" className="h-12 px-4 rounded-xl bg-surface text-primary font-label-lg inline-flex items-center">
-                Réserver
-              </Link>
-            </div>
-          </aside>
-        </section>
-
-        <section aria-label="Parcours" className="grid md:grid-cols-3 gap-3">
-          {steps.map((step) => (
+      <section className="relative pt-16 min-h-[520px] flex items-end">
+        <img src={IMAGES.tomate} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/70 to-primary/20" />
+        <div className="relative max-w-7xl mx-auto px-margin py-space-2xl w-full">
+          <p className="font-label-sm text-primary-fixed uppercase tracking-[0.14em] mb-space-sm">
+            Défi 1 · Agriculture & commerce · Lomé
+          </p>
+          <h1 className="font-headline-xl text-headline-xl text-on-primary max-w-3xl">
+            Vendez d’urgence un stock périssable, avant qu’il ne se perde.
+          </h1>
+          <p className="mt-space-md font-body-lg text-primary-fixed-dim max-w-2xl">
+            Déclaration rapide, matching IA dans le rayon, alertes aux acheteurs proches, prix selon la maturité,
+            point de collecte sur Maps.
+          </p>
+          <div className="mt-space-xl flex flex-wrap gap-space-md">
             <Link
-              key={step.n}
-              to={step.to}
-              className="rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] p-5 min-h-[148px] shadow-[0_2px_8px_-2px_rgba(30,82,63,0.08)] hover:border-primary-container focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              to={isAuth ? next : "/connexion?role=seller"}
+              className="h-12 px-space-xl rounded-xl bg-secondary text-on-secondary font-label-lg inline-flex items-center"
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary-fixed text-primary font-label-lg">{step.n}</span>
-              <h2 className="mt-3 font-headline-sm text-headline-sm font-bold text-primary">{step.title}</h2>
-              <p className="mt-1 font-body-md text-on-surface-variant">{step.text}</p>
+              Espace producteur
             </Link>
-          ))}
-        </section>
-      </main>
+            <Link
+              to={isAuth ? next : "/connexion?role=buyer"}
+              className="h-12 px-space-xl rounded-xl bg-surface text-primary font-label-lg inline-flex items-center"
+            >
+              Marché urgence
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-7xl mx-auto px-margin py-space-2xl grid sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+        {[
+          ["photo_camera", "Déclaration rapide", "Produit, quantité, quartier, expirabilité, photo du lot."],
+          ["psychology", "Matching IA", "Score proximité, urgence et volume — calculé côté serveur."],
+          ["notifications_active", "Alertes de rayon", "Les 3 meilleurs matchs ont 8 min de priorité."],
+          ["map", "Collecte", "Adresse du stand + itinéraire Google Maps."],
+        ].map(([icon, title, text]) => (
+          <article key={title} className="rounded-xl bg-surface-container-low p-space-lg">
+            <span className="material-symbols-outlined text-secondary text-3xl">{icon}</span>
+            <h2 className="font-headline-sm mt-space-sm">{title}</h2>
+            <p className="font-body-sm text-on-surface-variant mt-space-xs">{text}</p>
+          </article>
+        ))}
+      </section>
     </div>
   );
 }

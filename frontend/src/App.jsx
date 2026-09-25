@@ -1,81 +1,161 @@
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useAuth } from "./AuthContext.jsx";
+import Shell from "./components/Shell.jsx";
 import HomePage from "./pages/HomePage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import MarchePage from "./pages/MarchePage.jsx";
 import ScanPage from "./pages/ScanPage.jsx";
-import ReservationPage from "./pages/ReservationPage.jsx";
-import ImpactPage from "./pages/ImpactPage.jsx";
+import LotPage from "./pages/LotPage.jsx";
+import ConfirmPage from "./pages/ConfirmPage.jsx";
 import LotsPage from "./pages/LotsPage.jsx";
-import RdvPage from "./pages/RdvPage.jsx";
+import DemandesPage from "./pages/DemandesPage.jsx";
 import AlertesPage from "./pages/AlertesPage.jsx";
 import ProfilPage from "./pages/ProfilPage.jsx";
+import ImpactPage from "./pages/ImpactPage.jsx";
 
-const leftTabs = [
-  { to: "/marche", icon: "storefront", label: "Marché" },
-  { to: "/reservation", icon: "shopping_bag", label: "Réserver" },
-];
-const rightTabs = [
-  { to: "/rdv", icon: "pin_drop", label: "Collecte" },
-  { to: "/impact", icon: "monitoring", label: "Impact" },
-];
-const fab = { to: "/scan", icon: "qr_code_scanner", label: "Scan" };
-
-function MobileNav() {
-  const { pathname } = useLocation();
-  if (pathname === "/" || pathname === "/connexion" || pathname === "/inscription") return null;
-  const left = leftTabs;
-  const right = rightTabs;
-  return (
-    <nav
-      className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-background px-3 pt-8"
-      style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
-      aria-label="Navigation"
-    >
-      <div className="relative mx-auto flex h-[68px] max-w-md items-end justify-between rounded-full bg-white px-1 pb-1.5 shadow-[0_8px_24px_rgba(30,82,63,0.12)]">
-        {left.map((tab) => (
-          <NavItem key={tab.to} tab={tab} active={pathname === tab.to} />
-        ))}
-        <a href={fab.to} className="absolute left-1/2 top-0 flex w-14 -translate-x-1/2 -translate-y-[55%] flex-col items-center" aria-label={fab.label}>
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-container text-on-primary shadow-[0_8px_16px_rgba(30,82,63,0.28)] ring-4 ring-background">
-            <span className="material-symbols-outlined text-[26px]">{fab.icon}</span>
-          </span>
-        </a>
-        <span className="w-14 shrink-0" aria-hidden="true" />
-        {right.map((tab) => (
-          <NavItem key={tab.to} tab={tab} active={pathname === tab.to} />
-        ))}
+function Guard({ children, role }) {
+  const { ready, isAuth, isSeller, isBuyer } = useAuth();
+  const loc = useLocation();
+  if (!ready) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-background text-on-surface-variant font-label-md">
+        Chargement…
       </div>
-    </nav>
-  );
+    );
+  }
+  if (!isAuth) {
+    return <Navigate to="/connexion" replace state={{ from: loc.pathname }} />;
+  }
+  if (role === "seller" && !isSeller) return <Navigate to="/marche" replace />;
+  if (role === "buyer" && !isBuyer) return <Navigate to="/lots" replace />;
+  return children;
 }
 
-function NavItem({ tab, active }) {
-  return (
-    <a href={tab.to} className={`flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-end gap-0.5 pb-0.5 ${active ? "text-primary" : "text-outline"}`}>
-      <span className="material-symbols-outlined text-[22px]">{tab.icon}</span>
-      <span className="max-w-full truncate px-1 text-[11px] font-semibold leading-none">{tab.label}</span>
-    </a>
-  );
+function Guest({ children }) {
+  const { ready, isAuth, isSeller } = useAuth();
+  if (!ready) return null;
+  if (isAuth) return <Navigate to={isSeller ? "/lots" : "/marche"} replace />;
+  return children;
+}
+
+function Layout({ children }) {
+  return <Shell>{children}</Shell>;
 }
 
 export default function App() {
   return (
-    <>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/connexion" element={<LoginPage />} />
-        <Route path="/inscription" element={<RegisterPage />} />
-        <Route path="/marche" element={<MarchePage />} />
-        <Route path="/scan" element={<ScanPage />} />
-        <Route path="/reservation" element={<ReservationPage />} />
-        <Route path="/lots" element={<LotsPage />} />
-        <Route path="/rdv" element={<RdvPage />} />
-        <Route path="/alertes" element={<AlertesPage />} />
-        <Route path="/profil" element={<ProfilPage />} />
-        <Route path="/impact" element={<ImpactPage />} />
-      </Routes>
-      <MobileNav />
-    </>
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route
+        path="/connexion"
+        element={
+          <Guest>
+            <LoginPage />
+          </Guest>
+        }
+      />
+      <Route
+        path="/inscription"
+        element={
+          <Guest>
+            <RegisterPage />
+          </Guest>
+        }
+      />
+      <Route
+        path="/marche"
+        element={
+          <Guard role="buyer">
+            <Layout>
+              <MarchePage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/lots/:id"
+        element={
+          <Guard>
+            <Layout>
+              <LotPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/reservations/:id"
+        element={
+          <Guard>
+            <Layout>
+              <ConfirmPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/scan"
+        element={
+          <Guard role="seller">
+            <Layout>
+              <ScanPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/lots"
+        element={
+          <Guard role="seller">
+            <Layout>
+              <LotsPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/demandes"
+        element={
+          <Guard role="seller">
+            <Layout>
+              <DemandesPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/alertes"
+        element={
+          <Guard role="buyer">
+            <Layout>
+              <AlertesPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/impact"
+        element={
+          <Guard>
+            <Layout>
+              <ImpactPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route
+        path="/profil"
+        element={
+          <Guard>
+            <Layout>
+              <ProfilPage />
+            </Layout>
+          </Guard>
+        }
+      />
+      <Route path="/reservation" element={<Navigate to="/marche" replace />} />
+      <Route path="/rdv" element={<Navigate to="/impact" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }

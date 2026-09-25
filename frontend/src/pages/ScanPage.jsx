@@ -1,23 +1,332 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { api } from "../api.js";
+import { CATEGORIES, PRODUCE_TYPE_FR, QUARTIERS, findQuartier, fmtFcfa } from "../quartiers.js";
+import { useAuth } from "../AuthContext.jsx";
+import { fieldClass } from "../ui.js";
+
 export default function ScanPage() {
+  const { profile } = useAuth();
+  const nav = useNavigate();
+  const [form, setForm] = useState({
+    product_name: "",
+    category: "autre",
+    qty_initial: 20,
+    unit: "kg",
+    quartier: profile?.quartier || "Assigamé",
+    adresse_collecte: "",
+    description: "",
+    hours: 12,
+    published_price: "",
+  });
+  const [hint, setHint] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [imageB64, setImageB64] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState(false);
+  const camRef = useRef(null);
+  const galleryRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const geo = useMemo(() => findQuartier(form.quartier), [form.quartier]);
+
+  useEffect(() => {
+    if (profile?.quartier) setForm((f) => ({ ...f, quartier: f.quartier || profile.quartier }));
+  }, [profile]);
+
+  function set(k, v) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function runAnalyze(b64) {
+    if (!b64) {
+      setError("Photographiez d’abord le lot : le scan IA lit la photo, pas un score figé.");
+      return;
+    }
+    setError("");
+    setHint(null);
+    const data = await api.analyze({
+      category: "autre",
+      qty_initial: form.qty_initial,
+      image_base64: b64,
+    });
+    setHint(data);
+    setForm((f) => ({
+      ...f,
+      published_price: data.rotten ? "" : data.suggested_price,
+      hours: data.hours_left ? Math.max(1, Math.round(data.hours_left)) : f.hours,
+      category: data.category_guess || "autre",
+      product_name: data.produce_label || "",
+    }));
+    if (data.rotten) {
+      setError(data.verdict ? `${data.verdict}. Pas de prix : ce lot ne se publie pas.` : "Lot pourri : publication et prix bloqués.");
+    }
+  }
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setLive(false);
+  }
+
+  useEffect(() => () => stopCamera(), []);
+
+  useEffect(() => {
+    if (live && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [live]);
+
+  async function applyPhoto(dataUrl) {
+    setPreview(dataUrl);
+    const b64 = dataUrl.split(",")[1] || "";
+    setImageB64(b64);
+    try {
+      await runAnalyze(b64);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function startCamera() {
+    setError("");
+    if (!navigator.mediaDevices?.getUserMedia) {
+      camRef.current?.click();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setLive(true);
+    } catch {
+      camRef.current?.click();
+    }
+  }
+
+  function snap() {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d").drawImage(video, 0, 0);
+    applyPhoto(canvas.toDataURL("image/jpeg", 0.88));
+    stopCamera();
+  }
+
+  function onFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => applyPhoto(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
+  async function submit(e) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      let priceHint = hint;
+      if (!priceHint) {
+        if (!imageB64) {
+          setError("Photographiez le lot : le scan IA détecte s’il est pourri.");
+          setBusy(false);
+          return;
+        }
+        priceHint = await api.analyze({
+          category: "autre",
+          qty_initial: form.qty_initial,
+          image_base64: imageB64,
+        });
+        setHint(priceHint);
+      }
+      if (priceHint.rotten) {
+        setError(
+          priceHint.verdict
+            ? `${priceHint.verdict}. Ce lot ne peut pas être publié.`
+            : "L’IA a classé ce fruit ou légume comme pourri. Changez de denrée ou reprenez une photo nette.",
+        );
+        setBusy(false);
+        return;
+      }
+      const price = Number(form.published_price || priceHint.suggested_price);
+      const stock = await api.createStock({
+        product_name: form.product_name,
+        category: form.category,
+        qty_initial: Number(form.qty_initial),
+        unit: form.unit,
+        quartier: form.quartier,
+        lat: geo.lat,
+        lng: geo.lng,
+        adresse_collecte: form.adresse_collecte || `${form.quartier}, Lomé`,
+        description: form.description,
+        expires_at: new Date(Date.now() + Number(form.hours) * 3600 * 1000).toISOString(),
+        published_price: price,
+        market_price: priceHint.suggested_price,
+        freshness_analysis: priceHint,
+        image_base64: imageB64,
+      });
+      nav(`/lots`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div className="h-16 max-w-7xl mx-auto px-margin flex items-center justify-between gap-space-md"><div className="flex items-center gap-space-lg"><div className="flex items-center gap-space-sm"><span className="brand-orbit"><img alt="LocalMatch" className="brand-mark" src="/logo.png" /></span></div><div className="hidden xl:flex items-center gap-space-xs px-space-md py-space-xs rounded-full max-w-[220px] bg-surface-container text-on-surface cursor-pointer"><span className="material-symbols-outlined text-primary text-base">location_on</span><span className="font-label-md text-label-md truncate max-w-[190px]">Lomé - Marché d'Assigamé</span><span className="material-symbols-outlined text-outline text-sm">expand_more</span></div></div><nav className="hidden lg:flex items-center gap-space-md" data-active-classes="bg-primary-container text-on-primary-container font-semibold rounded-lg px-space-md py-space-xs"><a className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors px-space-md py-space-xs" data-path="marche-urgence" href="/marche">Marché Urgence</a><a aria-current="page" className="font-label-lg text-label-lg bg-primary-container text-on-primary-container font-semibold rounded-lg px-space-md py-space-xs" data-path="scan-ia-vendeur" href="/scan">Scan IA Vendeur</a><a className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors px-space-md py-space-xs" data-path="detail-reservations" href="/reservation">Détail &amp; Réservations</a><a className="font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-colors px-space-md py-space-xs" data-path="impact-historique" href="/impact">Impact &amp; Historique</a></nav><div className="flex items-center gap-space-md"><div className="hidden md:inline-flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm"><span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>Connecté PWA</div><button aria-label="Notifications" className="relative p-space-xs rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors" type="button"><span className="material-symbols-outlined text-xl">notifications</span><span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-secondary text-on-secondary font-label-sm text-[10px] flex items-center justify-center leading-none">3</span></button><div className="flex items-center gap-space-sm pl-space-xs"><img alt="Profile" className="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlzPq61LudsX8H1Rr7MdlShHNWHWmdZaTwm8czCS-qX_Py-ftbW0VMhn2FZK0ac0LSMGGB-f1-AsQ5WpqF6LN_04sLOuckY5tfiVb3Lcy4oNT8W22mpufdF_VkPp21SSKInLSf4fwdemoI44b4PXuuOVSte1-7_6zBc-N-7SErM4FNuoJ5alfhN4pheITnuc9SSyF0y1ZbceJHVugg5xY8t1qzcqRRI-ftvofp6oPdo9XIBcN-N_FxPQ" /><div className="hidden xl:flex flex-col text-left"><span className="font-label-md text-label-md text-on-surface font-bold leading-tight">Afi Mensah</span><span className="font-body-sm text-body-sm text-on-surface-variant leading-tight">Grossiste &amp; Transformateur</span></div></div></div></div></header><main className="w-full flex-1 pt-16 pb-20 md:pb-0 bg-background"><div className="flex flex-col w-full"><div className="w-full max-w-7xl mx-auto px-margin-mobile md:px-margin py-space-xl"><div className="flex flex-col lg:flex-row lg:items-end justify-between gap-space-lg mb-space-2xl"><div className="space-y-space-xs max-w-3xl"><div className="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-full bg-primary-fixed text-on-primary-fixed font-label-sm text-label-sm tracking-wide uppercase"><span className="material-symbols-outlined text-sm">psychology</span>
-          IA Agri-Vision Lomé • Vendeur Express
-        </div><h1 className="font-headline-xl text-headline-xl font-bold tracking-tight text-primary">
-          Inspection Visuelle par Intelligence Artificielle
-        </h1><p className="font-body-lg text-body-lg text-on-surface-variant">
-          Prenez une photo nette de votre denrée pour estimer sa fraîcheur et générer automatiquement le prix dégressif optimal adapté au marché local.
-        </p></div><div className="flex items-center gap-space-md flex-wrap lg:justify-end"><div className="flex items-center gap-space-sm bg-surface-container px-space-md py-space-sm rounded-xl"><span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping"></span><div className="flex flex-col"><span className="font-label-sm text-label-sm text-on-surface-variant leading-none">Capteur Optique</span><span className="font-label-md text-label-md text-on-surface font-bold leading-tight">Actif • Calibré 4K</span></div></div><div className="flex items-center gap-space-sm bg-surface-container px-space-md py-space-sm rounded-xl"><span className="material-symbols-outlined text-secondary-container text-xl">bolt</span><div className="flex flex-col"><span className="font-label-sm text-label-sm text-on-surface-variant leading-none">Abonnés Connectés</span><span className="font-label-md text-label-md text-on-surface font-bold leading-tight">34 Acheteurs Pro</span></div></div></div></div><div className="grid grid-cols-1 lg:grid-cols-12 gap-space-xl"><div className="lg:col-span-7 flex flex-col gap-space-lg"><div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-inverse-surface shadow-xl"><img alt="Inspection Visuelle Tomates" className="absolute inset-0 w-full h-full object-cover select-none" data-alt="Close-up vibrant shot of woven wicker baskets filled with fresh bright red ripe tomatoes and piment vert habanero inside an open-air market stall in Lomé Togo, warm morning sunlight, natural textures of fresh produce, vivid colors, cinematic shallow depth of field, agricultural harvest aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4KmbsxdZZK0SZaMN0gMmAUy-UkpLL016APv9xB-qD03PoKU6bQmtVolQu3wFDNpySaRyTT265wUAwRBl4Mt5b8_aYQ0G3RKykhTBqdfJqma8l_4aZA45grsXwSV4NPu0RqVOnZ8r5YaeJ1X-hLABuEDgCcPArJRMt7mPqAzWelyyyvNiTIImiBGSYntXgIwlkiLX_XJZFK_8cYwt4v9RMcKTbfVz7_XVOrREzcEv2ZJsPyYCGQ8rjmQ" /><div className="absolute inset-0 bg-gradient-to-t from-inverse-surface/90 via-transparent to-inverse-surface/40 pointer-events-none"></div><div className="absolute top-space-md left-space-md right-space-md flex items-center justify-between pointer-events-none z-10"><div className="flex items-center gap-space-xs bg-surface/90 backdrop-blur-md px-space-md py-1.5 rounded-full text-on-surface shadow-sm"><span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span><span className="font-label-sm text-label-sm tracking-wider uppercase font-bold">Flux Direct • Assigamé</span></div><div className="flex items-center gap-space-xs bg-surface/90 backdrop-blur-md px-space-md py-1.5 rounded-full text-on-surface shadow-sm"><span className="material-symbols-outlined text-primary text-base">verified</span><span className="font-label-sm text-label-sm font-bold">96.4% Certitude IA</span></div></div><div className="absolute inset-x-[14%] inset-y-[18%] rounded-xl pointer-events-none flex flex-col justify-between p-space-sm z-10" style={{ background: 'rgba(0, 59, 41, 0.08)', outline: '2px dashed rgba(184, 238, 212, 0.95)', boxShadow: '0 0 25px rgba(0, 59, 41, 0.45)' }}><div className="flex justify-between items-start"><div className="w-5 h-5 -mt-1 -ml-1 border-t-4 border-l-4 border-primary-fixed"></div><div className="flex items-center gap-space-xs bg-primary text-on-primary px-space-sm py-1 rounded-md text-xs font-semibold shadow-md"><span className="material-symbols-outlined text-xs">center_focus_strong</span><span>Lot #TG-8824</span></div><div className="w-5 h-5 -mt-1 -mr-1 border-t-4 border-r-4 border-primary-fixed"></div></div><div className="self-center flex flex-col items-center justify-center pointer-events-none opacity-85"><span className="material-symbols-outlined text-4xl text-primary-fixed animate-pulse">filter_center_focus</span><span className="font-label-sm text-label-sm text-surface tracking-widest uppercase mt-1 drop-shadow-md">Analyse Cellulaire Active</span></div><div className="flex justify-between items-end"><div className="w-5 h-5 -mb-1 -ml-1 border-b-4 border-l-4 border-primary-fixed"></div><div className="w-5 h-5 -mb-1 -mr-1 border-b-4 border-r-4 border-primary-fixed"></div></div></div><div className="absolute bottom-space-lg left-space-md right-space-md flex flex-wrap gap-space-xs z-10"><div className="bg-surface/90 backdrop-blur-md rounded-lg px-space-sm py-1 shadow-sm flex items-center gap-space-xs"><span className="material-symbols-outlined text-primary text-sm">eco</span><span className="font-label-sm text-label-sm text-on-surface font-semibold">Tomate locale (Solanum lycopersicum)</span></div><div className="bg-surface/90 backdrop-blur-md rounded-lg px-space-sm py-1 shadow-sm flex items-center gap-space-xs"><span className="material-symbols-outlined text-primary text-sm">straighten</span><span className="font-label-sm text-label-sm text-on-surface font-semibold">Fermeté : 82%</span></div><div className="bg-surface/90 backdrop-blur-md rounded-lg px-space-sm py-1 shadow-sm flex items-center gap-space-xs"><span className="material-symbols-outlined text-secondary text-sm">palette</span><span className="font-label-sm text-label-sm text-on-surface font-semibold">Colorimétrie : Rouge vif 88%</span></div><div className="bg-surface/90 backdrop-blur-md rounded-lg px-space-sm py-1 shadow-sm flex items-center gap-space-xs"><span className="material-symbols-outlined text-primary text-sm">water_drop</span><span className="font-label-sm text-label-sm text-on-surface font-semibold">Humidité : Optimale</span></div></div></div><div className="bg-surface-container-lowest rounded-2xl p-space-md shadow-sm flex flex-col sm:flex-row items-center justify-between gap-space-md"><div className="flex items-center gap-space-md w-full sm:w-auto"><button className="flex-1 sm:flex-initial flex items-center justify-center gap-space-sm bg-primary hover:bg-primary-container text-on-primary px-space-lg py-3 rounded-xl transition-all shadow-md active:scale-95" type="button"><span className="material-symbols-outlined text-xl">photo_camera</span><span className="font-label-lg text-label-lg font-bold">Reprendre la photo</span></button><button className="flex-1 sm:flex-initial flex items-center justify-center gap-space-sm bg-surface-container hover:bg-surface-container-high text-on-surface px-space-md py-3 rounded-xl transition-all" type="button"><span className="material-symbols-outlined text-xl">photo_library</span><span className="font-label-lg text-label-lg font-bold">Galerie</span></button></div><div className="flex items-center gap-space-xs self-end sm:self-center"><button aria-label="Flash" className="w-10 h-10 rounded-xl bg-surface-container text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors" type="button"><span className="material-symbols-outlined text-lg">flash_on</span></button><button aria-label="Repères" className="w-10 h-10 rounded-xl bg-surface-container text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors" type="button"><span className="material-symbols-outlined text-lg">grid_on</span></button><button aria-label="Paramètres vision" className="w-10 h-10 rounded-xl bg-surface-container text-on-surface flex items-center justify-center hover:bg-surface-container-high transition-colors" type="button"><span className="material-symbols-outlined text-lg">tune</span></button></div></div><div className="bg-surface-container-low rounded-2xl p-space-lg flex flex-col gap-space-md"><div className="flex items-center justify-between"><div className="flex items-center gap-space-sm"><span className="material-symbols-outlined text-primary text-xl">analytics</span><span className="font-headline-sm text-headline-sm font-bold text-on-surface">Score Vital Fraîcheur</span></div><span className="font-label-lg text-label-lg font-bold text-primary bg-primary-fixed px-space-sm py-0.5 rounded-lg">88 / 100</span></div><div className="grid grid-cols-3 gap-space-sm"><div className="bg-surface-container-lowest p-space-sm rounded-xl flex flex-col"><span className="font-body-sm text-body-sm text-on-surface-variant">Turgidité</span><span className="font-label-lg text-label-lg font-bold text-on-surface mt-1">Excellente</span><div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden"><div className="bg-primary h-1.5 rounded-full" style={{ width: '85%' }}></div></div></div><div className="bg-surface-container-lowest p-space-sm rounded-xl flex flex-col"><span className="font-body-sm text-body-sm text-on-surface-variant">Intégrité peau</span><span className="font-label-lg text-label-lg font-bold text-on-surface mt-1">94%</span><div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden"><div className="bg-primary h-1.5 rounded-full" style={{ width: '94%' }}></div></div></div><div className="bg-surface-container-lowest p-space-sm rounded-xl flex flex-col"><span className="font-body-sm text-body-sm text-on-surface-variant">Oxydation</span><span className="font-label-lg text-label-lg font-bold text-secondary mt-1">Très faible</span><div className="w-full bg-surface-container rounded-full h-1.5 mt-2 overflow-hidden"><div className="bg-secondary-container h-1.5 rounded-full" style={{ width: '12%' }}></div></div></div></div></div></div><div className="lg:col-span-5 flex flex-col gap-space-lg"><div className="bg-primary text-on-primary rounded-2xl p-space-lg shadow-lg relative overflow-hidden"><div className="absolute top-0 right-0 w-36 h-36 bg-primary-fixed opacity-10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div><div className="flex items-start justify-between gap-space-sm relative z-10"><div><span className="font-label-sm text-label-sm tracking-wider uppercase text-primary-fixed font-bold">Fenêtre de Vente Recommandée</span><h2 className="font-headline-md text-headline-md font-bold mt-1">36 Heures Restantes</h2></div><div className="w-12 h-12 rounded-xl bg-primary-container flex items-center justify-center shrink-0"><span className="material-symbols-outlined text-primary-fixed text-2xl">hourglass_top</span></div></div><p className="font-body-md text-body-md text-on-primary-container mt-space-sm relative z-10 leading-relaxed">
-            Modèle calibré sur la température ambiante de Lomé (31°C, humidité 78%). Pour éviter toute dépréciation, l'application applique la tarification dégressive automatisée.
-          </p></div><div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col gap-space-md"><div className="flex items-center justify-between"><div className="flex items-center gap-space-xs"><span className="material-symbols-outlined text-secondary text-xl">trending_down</span><h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Paliers Dégressifs Automatiques</h3></div><span className="font-label-sm text-label-sm text-on-surface-variant font-semibold bg-surface-container px-space-sm py-0.5 rounded-full">3 Paliers</span></div><div className="p-space-md rounded-xl bg-surface-container-low flex items-center justify-between transition-transform hover:translate-x-1"><div className="flex items-center gap-space-md"><div className="w-10 h-10 rounded-lg bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-bold font-label-md">
-                0-12h
-              </div><div className="flex flex-col"><span className="font-label-lg text-label-lg font-bold text-on-surface">Palier Immédiat</span><span className="font-body-sm text-body-sm text-on-surface-variant">Fraîcheur maximale • Standard marché</span></div></div><div className="text-right"><span className="font-price-display text-price-display text-primary font-bold">14 000</span><span className="font-price-currency text-price-currency text-on-surface-variant">FCFA</span></div></div><div className="p-space-md rounded-xl bg-secondary-fixed/30 flex items-center justify-between transition-transform hover:translate-x-1"><div className="flex items-center gap-space-md"><div className="w-10 h-10 rounded-lg bg-secondary text-on-secondary flex items-center justify-center font-bold font-label-md">
-                12-24h
-              </div><div className="flex flex-col"><div className="flex items-center gap-space-xs"><span className="font-label-lg text-label-lg font-bold text-on-surface">Urgence Palier 1</span><span className="font-label-sm text-[10px] text-secondary font-bold uppercase bg-secondary-fixed px-1.5 py-0.5 rounded">-32%</span></div><span className="font-body-sm text-body-sm text-on-surface-variant">Déstockage ciblé cantines &amp; maquis</span></div></div><div className="text-right"><span className="font-price-display text-price-display text-secondary font-bold">9 500</span><span className="font-price-currency text-price-currency text-on-surface-variant">FCFA</span></div></div><div className="p-space-md rounded-xl bg-surface-container flex items-center justify-between transition-transform hover:translate-x-1"><div className="flex items-center gap-space-md"><div className="w-10 h-10 rounded-lg bg-inverse-surface text-inverse-on-surface flex items-center justify-center font-bold font-label-md">
-                &gt;24h
-              </div><div className="flex flex-col"><div className="flex items-center gap-space-xs"><span className="font-label-lg text-label-lg font-bold text-on-surface">Sauvetage Express</span><span className="font-label-sm text-[10px] text-error font-bold uppercase bg-error-container px-1.5 py-0.5 rounded">-57%</span></div><span className="font-body-sm text-body-sm text-on-surface-variant">Transformateurs sauces &amp; coulis</span></div></div><div className="text-right"><span className="font-price-display text-price-display text-on-surface font-bold">6 000</span><span className="font-price-currency text-price-currency text-on-surface-variant">FCFA</span></div></div></div><div className="bg-surface-container-lowest rounded-2xl p-space-lg shadow-sm flex flex-col gap-space-md"><h3 className="font-headline-sm text-headline-sm font-bold text-on-surface">Informations de Mise en Vente</h3><div className="flex flex-col gap-1.5"><label className="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between"><span>Quantité disponible</span><span className="text-primary font-body-sm text-body-sm font-normal">Pesée calibrée</span></label><div className="relative flex items-center"><span className="material-symbols-outlined absolute left-space-md text-on-surface-variant text-xl">inventory_2</span><input className="w-full h-12 pl-11 pr-space-md bg-surface-container-low rounded-xl text-on-surface font-body-md text-body-md focus:bg-surface-container-lowest focus:outline-none transition-all shadow-inner" type="text" value="8 cageots standard (approx. 120 kg)" readOnly="" /></div></div><div className="flex flex-col gap-1.5"><label className="font-label-md text-label-md text-on-surface font-semibold">
-              Point d'enlèvement à Lomé
-            </label><div className="relative flex items-center"><span className="material-symbols-outlined absolute left-space-md text-on-surface-variant text-xl">pin_drop</span><select className="w-full h-12 pl-11 pr-space-xl bg-surface-container-low rounded-xl text-on-surface font-body-md text-body-md focus:bg-surface-container-lowest focus:outline-none appearance-none transition-all shadow-inner cursor-pointer"><option selected="">Marché d'Assigamé - Allée Légumes D4</option><option>Marché Hedzranawoé - Hangar C</option><option>Port de Pêche de Lomé - Quai Frais</option><option>Marché de Bè - Zone Grossistes</option></select><span className="material-symbols-outlined absolute right-space-md text-on-surface-variant pointer-events-none text-xl">expand_more</span></div></div><div className="flex flex-col gap-space-xs pt-space-xs"><span className="font-label-md text-label-md text-on-surface font-semibold">Modalités de règlement autorisées</span><div className="grid grid-cols-3 gap-space-xs"><label className="flex flex-col items-center justify-center p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer select-none"><input checked="" className="hidden" id="tmoney-cb" type="checkbox" /><span className="material-symbols-outlined text-primary text-xl">phone_android</span><span className="font-label-sm text-label-sm font-bold text-on-surface mt-1">T-Money</span><span className="font-body-sm text-[10px] text-primary">Activé</span></label><label className="flex flex-col items-center justify-center p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer select-none"><input checked="" className="hidden" id="flooz-cb" type="checkbox" /><span className="material-symbols-outlined text-primary text-xl">payments</span><span className="font-label-sm text-label-sm font-bold text-on-surface mt-1">Moov Flooz</span><span className="font-body-sm text-[10px] text-primary">Activé</span></label><label className="flex flex-col items-center justify-center p-space-sm rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer select-none"><input checked="" className="hidden" id="cash-cb" type="checkbox" /><span className="material-symbols-outlined text-on-surface-variant text-xl">local_atm</span><span className="font-label-sm text-label-sm font-bold text-on-surface mt-1">Espèces</span><span className="font-body-sm text-[10px] text-on-surface-variant">Au retrait</span></label></div></div><div className="pt-space-sm"><button className="w-full bg-primary hover:bg-primary-container text-on-primary py-4 px-space-lg rounded-xl font-headline-sm text-headline-sm font-bold shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-space-sm" id="publish-btn" type="button"><span className="material-symbols-outlined text-2xl">campaign</span><span>Publier le lot sur LocalMatch Lomé</span></button><p className="font-body-sm text-body-sm text-center text-on-surface-variant mt-2 flex items-center justify-center gap-1"><span className="material-symbols-outlined text-sm text-secondary">notifications_active</span><span>Alerte instantanée envoyée aux 34 restaurateurs et transformateurs à proximité</span></p></div></div></div></div><div className="mt-space-2xl bg-surface-container-low rounded-2xl p-space-lg"><div className="flex flex-col md:flex-row md:items-center justify-between gap-space-md"><div className="flex items-center gap-space-md"><div className="w-12 h-12 rounded-xl bg-surface-container-lowest flex items-center justify-center text-primary shadow-sm shrink-0"><span className="material-symbols-outlined text-2xl">insights</span></div><div><h4 className="font-headline-sm text-headline-sm font-bold text-on-surface">Demande Marché en Direct : Tomates &amp; Condiments</h4><p className="font-body-sm text-body-sm text-on-surface-variant">Zone Déckon, Grand Marché et Tokoin - Tendance des 3 dernières heures</p></div></div><div className="flex items-center gap-space-xl flex-wrap"><div className="flex flex-col"><span className="font-body-sm text-body-sm text-on-surface-variant">Délai moyen d'achat</span><span className="font-label-lg text-label-lg font-bold text-on-surface">18 minutes</span></div><div className="flex flex-col"><span className="font-body-sm text-body-sm text-on-surface-variant">Pertes évitées aujourd'hui</span><span className="font-label-lg text-label-lg font-bold text-primary">1 420 kg</span></div><div className="flex flex-col"><span className="font-body-sm text-body-sm text-on-surface-variant">Taux de sauvetage</span><span className="font-label-lg text-label-lg font-bold text-secondary">92.4%</span></div></div></div></div></div></div></main><footer className="hidden md:block w-full bg-surface-container-low mt-auto"><div className="max-w-7xl mx-auto px-margin py-space-xl flex flex-col sm:flex-row items-center justify-between gap-space-md text-on-surface-variant"><div className="flex items-center gap-space-sm"><span className="font-label-md text-label-md text-primary font-bold">LocalMatch Lomé</span><span className="text-outline">•</span><span className="font-body-sm text-body-sm">Halte au gaspillage alimentaire au Togo</span></div><div className="flex items-center gap-space-lg font-body-sm text-body-sm"><a className="hover:text-on-surface transition-colors" href="#">Assistance Déckon</a><a className="hover:text-on-surface transition-colors" href="#">Marché Hanoukopé</a><a className="hover:text-on-surface transition-colors" href="#">Modalités FCFA</a></div><span className="font-body-sm text-body-sm">© 2024 LocalMatch PWA. Tous droits réservés.</span></div></footer><nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 h-16 bg-surface/95 backdrop-blur-lg shadow-[0_-2px_12px_rgba(0,0,0,0.06)] flex items-center justify-around px-gutter-mobile" data-active-classes="text-primary-container font-bold"><a className="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors py-1 flex-1" data-path="marche-urgence" href="/marche"><span className="material-symbols-outlined text-2xl">storefront</span><span className="font-label-sm text-label-sm mt-0.5">Marché</span></a><a aria-current="page" className="font-label-lg text-label-lg bg-primary-container text-on-primary-container font-semibold rounded-lg px-space-md py-space-xs" data-path="scan-ia-vendeur" href="/scan"><span className="material-symbols-outlined text-2xl">add_a_photo</span><span className="font-label-sm text-label-sm mt-0.5">Scan IA</span></a><a className="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors py-1 flex-1" data-path="detail-reservations" href="/reservation"><span className="material-symbols-outlined text-2xl">shopping_bag</span><span className="font-label-sm text-label-sm mt-0.5">Réservations</span></a><a className="flex flex-col items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors py-1 flex-1" data-path="impact-historique" href="/impact"><span className="material-symbols-outlined text-2xl">eco</span><span className="font-label-sm text-label-sm mt-0.5">Impact</span></a></nav>
-    </>
+    <div className="bg-background text-on-surface pb-10">
+      <div className="bg-surface-container-low py-space-sm">
+        <div className="max-w-7xl mx-auto px-margin font-body-sm text-on-surface-variant">
+          Scan IA vendeur · déclaration d’un stock en souffrance
+        </div>
+      </div>
+      <div className="max-w-7xl mx-auto px-margin py-space-lg grid lg:grid-cols-12 gap-space-xl">
+        <div className="lg:col-span-5">
+          <p className="font-label-sm text-secondary uppercase tracking-widest">Vision</p>
+          <h1 className="font-headline-lg text-primary mb-space-md">Photo du lot</h1>
+          <div className="rounded-xl overflow-hidden bg-surface-container-low min-h-[280px] relative">
+            {live ? (
+              <video ref={videoRef} autoPlay playsInline muted className="w-full min-h-[280px] object-cover bg-black" />
+            ) : preview ? (
+              <img src={preview} alt="Lot photographié" className="w-full max-h-[420px] min-h-[280px] object-contain bg-surface-container-low" />
+            ) : (
+              <div className="min-h-[280px] flex flex-col items-center justify-center text-on-surface-variant p-space-lg text-center">
+                <span className="material-symbols-outlined text-5xl text-secondary">photo_camera</span>
+                <p className="font-headline-sm mt-space-sm">Photographiez le lot vous-même</p>
+                <p className="font-body-sm">Caméra du téléphone — chaque cliché relance une analyse neuve.</p>
+              </div>
+            )}
+          </div>
+          <input ref={camRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
+          <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={onFile} />
+          <div className="mt-space-sm grid grid-cols-2 gap-space-sm">
+            {live ? (
+              <>
+                <button type="button" onClick={snap} className="h-12 rounded-xl bg-secondary text-on-secondary font-label-md inline-flex items-center justify-center gap-1">
+                  <span className="material-symbols-outlined">camera</span>
+                  Capturer
+                </button>
+                <button type="button" onClick={stopCamera} className="h-12 rounded-xl bg-surface-container-high font-label-md">
+                  Annuler
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={startCamera} className="h-12 rounded-xl bg-primary text-on-primary font-label-md inline-flex items-center justify-center gap-1">
+                  <span className="material-symbols-outlined">photo_camera</span>
+                  Prendre une photo
+                </button>
+                <button type="button" onClick={() => galleryRef.current?.click()} className="h-12 rounded-xl bg-surface-container-high font-label-md inline-flex items-center justify-center gap-1">
+                  <span className="material-symbols-outlined">photo_library</span>
+                  Galerie
+                </button>
+              </>
+            )}
+          </div>
+          {hint && (
+            <div className={`mt-space-md rounded-xl p-space-md ${hint.rotten ? "bg-error-container text-on-error-container" : "bg-primary-container text-on-primary-container"}`}>
+              <p className="font-label-md uppercase tracking-wide">
+                {hint.rotten ? "Pourri — ne pas vendre" : "Sain — publication possible"}
+              </p>
+              <p className="font-headline-sm mt-space-xs">
+                {hint.verdict ||
+                  `${PRODUCE_TYPE_FR[hint.produce_type] || "Lot"} ${hint.rotten ? "pourri" : "sain"}`}
+              </p>
+              <p className="font-body-sm mt-space-xs">
+                {hint.produce_label || "Denrée"} · {PRODUCE_TYPE_FR[hint.produce_type] || "—"} · pourriture{" "}
+                {Math.round((hint.rotten_proba || 0) * 100)} % · maturité {hint.ripeness}/5
+              </p>
+              {hint.vision?.metrics && (
+                <p className="font-body-sm mt-space-xs opacity-80">
+                  Cette photo · rouge {Math.round((hint.vision.metrics.red_ratio || 0) * 100)} % · jaune{" "}
+                  {Math.round((hint.vision.metrics.yellow_ratio || 0) * 100)} % · brun{" "}
+                  {Math.round((hint.vision.metrics.brown_ratio || 0) * 100)} % · moisissure{" "}
+                  {Math.round((hint.vision.metrics.mold_ratio || 0) * 100)} %
+                </p>
+              )}
+              <p className="font-body-sm mt-space-xs">{hint.vision?.rationale || hint.comment}</p>
+              {hint.rotten && (
+                <p className="font-label-md mt-space-sm">Ce lot ne peut pas être publié : trop dégradé pour la vente d’urgence.</p>
+              )}
+              {!hint.rotten && (
+                <p className="mt-space-sm font-headline-sm">
+                  Prix proposé {fmtFcfa(hint.suggested_price)} · conservation ~{hint.hours_left} h
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+        <form onSubmit={submit} className="lg:col-span-7 flex flex-col gap-space-md">
+          <h2 className="font-headline-md text-primary">Fiche de déclaration</h2>
+          {error && <p className="text-on-error-container bg-error-container rounded-xl px-space-md py-space-sm">{error}</p>}
+          <label className="font-label-md text-on-surface">Produit</label>
+          <input required placeholder="Ex. Tomates de Kovié" value={form.product_name} onChange={(e) => set("product_name", e.target.value)} className={fieldClass} />
+          <div className="grid sm:grid-cols-2 gap-space-md">
+            <div>
+              <label className="font-label-md text-on-surface">Catégorie</label>
+              <select value={form.category} onChange={(e) => set("category", e.target.value)} className={`${fieldClass} mt-space-xs`}>
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface">Quartier / localisation</label>
+              <select value={form.quartier} onChange={(e) => set("quartier", e.target.value)} className={`${fieldClass} mt-space-xs`}>
+                {QUARTIERS.map((q) => (
+                  <option key={q.name}>{q.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-space-md">
+            <div>
+              <label className="font-label-md text-on-surface">Quantité</label>
+              <input type="number" min="1" value={form.qty_initial} onChange={(e) => set("qty_initial", e.target.value)} className={`${fieldClass} mt-space-xs`} />
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface">Unité</label>
+              <input value={form.unit} onChange={(e) => set("unit", e.target.value)} className={`${fieldClass} mt-space-xs`} />
+            </div>
+            <div>
+              <label className="font-label-md text-on-surface">Expirabilité (h)</label>
+              <input type="number" min="1" value={form.hours} onChange={(e) => set("hours", e.target.value)} className={`${fieldClass} mt-space-xs`} />
+            </div>
+          </div>
+          <label className="font-label-md text-on-surface">Adresse de collecte</label>
+          <input required placeholder="Stand, hangar, allée…" value={form.adresse_collecte} onChange={(e) => set("adresse_collecte", e.target.value)} className={fieldClass} />
+          <label className="font-label-md text-on-surface">Précisions</label>
+          <textarea placeholder="Variété, cageot, heure d’arrivée au stand…" value={form.description} onChange={(e) => set("description", e.target.value)} className={`${fieldClass} min-h-24`} />
+          <label className="font-label-md text-on-surface">Prix publié (FCFA / kg)</label>
+          <input
+            required={!hint?.rotten}
+            type="number"
+            step="10"
+            min="0"
+            disabled={!!hint?.rotten}
+            value={hint?.rotten ? "" : form.published_price}
+            onChange={(e) => set("published_price", e.target.value)}
+            placeholder={hint?.rotten ? "Bloqué — lot pourri" : "Ex. 350"}
+            className={fieldClass}
+          />
+          <button type="button" onClick={() => runAnalyze(imageB64 || undefined).catch((err) => setError(err.message))} className="h-11 rounded-xl border border-primary text-primary font-label-md">
+            Relancer le scan IA
+          </button>
+          <button disabled={busy || !!hint?.rotten} className="h-12 rounded-xl bg-secondary text-on-secondary font-label-lg disabled:opacity-50">
+            {hint?.rotten ? "Publication impossible (pourri)" : busy ? "Publication…" : "Publier et notifier le rayon"}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

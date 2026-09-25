@@ -1,0 +1,17 @@
+.env
+*.sqlite3
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.venv/
+frontend/node_modules/
+frontend/dist/
+.DS_Store
+*.log
+media/
+ml/submitted/
+ml/real/
+backend/marketplace/ml/submitted/
+backend/marketplace/ml/real/
+staticfiles/

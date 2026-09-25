@@ -1,45 +1,63 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Shell from "../components/Shell.jsx";
-
-const lots = [
-  { id: "TG-8824", name: "Tomates de Kovié", qty: "8 cageots", hours: "36 h", price: "14 000", status: "En vente", tone: "bg-primary-fixed text-on-primary-fixed" },
-  { id: "TG-7710", name: "Dorades du port", qty: "35 kg", hours: "4 h", price: "42 000", status: "Partiel", tone: "bg-secondary-fixed text-on-secondary-fixed" },
-  { id: "TG-6602", name: "Plantains mûrs", qty: "50 kg", hours: "24 h", price: "12 000", status: "En vente", tone: "bg-primary-fixed text-on-primary-fixed" },
-  { id: "TG-5401", name: "Mangues Kent", qty: "60 kg", hours: "Expiré", price: "7 500", status: "Expiré", tone: "bg-surface-container-high text-outline" },
-];
+import { api } from "../api.js";
+import { fmtFcfa, statusLabel } from "../quartiers.js";
+import LotThumb from "../components/LotThumb.jsx";
+import { hoursLeftLabel } from "../ui.js";
 
 export default function LotsPage() {
+  const [lots, setLots] = useState([]);
+  const [error, setError] = useState("");
+
+  async function load() {
+    try {
+      setLots(await api.mine());
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
   return (
-    <Shell>
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-label-sm uppercase tracking-wide text-primary">Vendeur</p>
-            <h1 className="font-headline-lg text-headline-lg text-primary">Mes lots</h1>
-          </div>
-          <Link to="/scan" className="h-12 px-4 rounded-xl bg-primary text-on-primary font-label-lg inline-flex items-center gap-2">
-            <span className="material-symbols-outlined">add</span>
-            Nouveau lot
-          </Link>
+    <div className="max-w-7xl mx-auto px-margin py-space-lg">
+      <div className="flex flex-wrap justify-between items-end gap-space-md mb-space-lg">
+        <div>
+          <p className="font-label-sm text-secondary uppercase tracking-widest">Producteur</p>
+          <h1 className="font-headline-lg text-primary">Mes lots en souffrance</h1>
         </div>
-        <div className="grid gap-3">
-          {lots.map((lot) => (
-            <article key={lot.id} className="bg-surface-container-lowest rounded-2xl border border-[#e2e8f0] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="font-headline-sm text-headline-sm font-bold">{lot.name}</h2>
-                  <span className={`px-2 py-0.5 rounded-full font-label-sm ${lot.tone}`}>{lot.status}</span>
-                </div>
-                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Lot #{lot.id} • {lot.qty} • fenêtre {lot.hours}</p>
-              </div>
-              <div className="flex items-center gap-4">
-                <span className="font-price-display text-price-display text-primary font-extrabold">{lot.price} <span className="font-price-currency">FCFA</span></span>
-                <button type="button" className="h-10 px-3 rounded-xl border border-secondary text-secondary font-label-md">Annuler</button>
-              </div>
-            </article>
-          ))}
-        </div>
+        <Link to="/scan" className="h-11 px-space-lg rounded-xl bg-secondary text-on-secondary font-label-md inline-flex items-center">
+          Scan IA · nouveau lot
+        </Link>
       </div>
-    </Shell>
+      {error && <p className="text-error mb-space-md">{error}</p>}
+      <div className="grid sm:grid-cols-2 gap-space-md">
+        {lots.map((lot) => (
+          <article key={lot.id} className="rounded-xl overflow-hidden bg-surface-container-lowest shadow-sm flex items-stretch">
+            <LotThumb lot={lot} className="w-36 sm:w-44 min-h-[10.5rem] shrink-0" />
+            <div className="p-space-md flex-1 min-w-0">
+              <Link to={`/lots/${lot.id}`} className="font-headline-sm text-primary">
+                {lot.product_name}
+              </Link>
+              <p className="font-body-sm text-on-surface-variant">
+                {lot.qty_available}/{lot.qty_initial} {lot.unit} · {statusLabel(lot.status)}
+              </p>
+              <p className="font-label-sm text-secondary mt-space-xs">{hoursLeftLabel(lot.hours_left)}</p>
+              <p className="font-price-display text-primary">{fmtFcfa(lot.published_price)}</p>
+              {lot.status !== "cancelled" && lot.status !== "exhausted" && (
+                <button type="button" onClick={() => api.cancelStock(lot.id).then(load)} className="mt-space-sm font-label-md text-error">
+                  Retirer du marché
+                </button>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+      {lots.length === 0 && (
+        <p className="rounded-xl bg-surface-container-low p-space-lg text-on-surface-variant">Aucun lot. Déclarez un stock périssable via le scan IA.</p>
+      )}
+    </div>
   );
 }

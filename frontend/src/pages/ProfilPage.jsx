@@ -1,35 +1,55 @@
-import { useState } from "react";
-import Shell from "../components/Shell.jsx";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../AuthContext.jsx";
 
 export default function ProfilPage() {
-  const [saved, setSaved] = useState(false);
+  const { profile, logout, isSeller } = useAuth();
+  const nav = useNavigate();
+
   return (
-    <Shell>
-      <form
-        className="max-w-xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setSaved(true);
+    <div className="max-w-lg mx-auto px-margin py-space-xl">
+      <p className="font-label-sm text-secondary uppercase tracking-widest">Compte</p>
+      <h1 className="font-headline-lg text-primary mb-space-lg">Profil</h1>
+      <div className="rounded-xl bg-surface-container-lowest p-space-lg shadow-sm">
+        <div className="flex items-center gap-space-md mb-space-lg">
+          <span className="w-14 h-14 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-headline-sm">
+            {(profile?.display_name || "?")
+              .split(" ")
+              .map((p) => p[0])
+              .slice(0, 2)
+              .join("")
+              .toUpperCase()}
+          </span>
+          <div>
+            <p className="font-headline-sm">{profile?.display_name}</p>
+            <p className="font-body-sm text-on-surface-variant">{isSeller ? "Producteur / vendeur" : "Acheteur"} · {profile?.quartier}</p>
+          </div>
+        </div>
+        <dl className="space-y-2 font-body-md">
+          <Row k="Email" v={profile?.email} />
+          <Row k="Quartier" v={profile?.quartier} />
+          <Row k="Rayon d’action" v={`${profile?.radius_km || 15} km`} />
+        </dl>
+      </div>
+      <button
+        type="button"
+        onClick={async () => {
+          await logout();
+          nav("/");
         }}
+        className="w-full h-12 mt-space-lg rounded-xl bg-error text-on-error font-label-lg inline-flex items-center justify-center gap-2"
       >
-        <h1 className="font-headline-lg text-headline-lg text-primary">Profil</h1>
-        <p className="font-body-md text-on-surface-variant">Rôle acheteur, déjà choisi. Le rayon sert au matching.</p>
-        <div className="rounded-xl bg-primary-fixed text-on-primary-fixed px-4 py-3 font-label-lg">Grossiste & transformateur</div>
-        <label className="flex flex-col gap-1 font-label-md">Nom
-          <input defaultValue="Afi Mensah" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 bg-surface-container-lowest" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">Quartier
-          <input defaultValue="Assigamé" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 bg-surface-container-lowest" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">Rayon de collecte (km)
-          <input type="number" min="1" max="30" defaultValue="5" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 bg-surface-container-lowest" />
-        </label>
-        <label className="flex flex-col gap-1 font-label-md">Alias Mobile Money
-          <input defaultValue="Flooz • Afi Mensah" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 bg-surface-container-lowest" />
-        </label>
-        <button type="submit" className="h-12 rounded-xl bg-primary text-on-primary font-label-lg">Enregistrer</button>
-        {saved && <p className="font-body-sm text-primary font-bold">Profil enregistré sur cet appareil.</p>}
-      </form>
-    </Shell>
+        <span className="material-symbols-outlined">logout</span>
+        Se déconnecter
+      </button>
+    </div>
+  );
+}
+
+function Row({ k, v }) {
+  return (
+    <div className="flex justify-between border-b border-outline-variant/40 py-2">
+      <dt className="text-on-surface-variant">{k}</dt>
+      <dd>{v || "—"}</dd>
+    </div>
   );
 }
