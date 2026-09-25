@@ -70,14 +70,6 @@ export default function LoginPage() {
               Inscription
             </Link>
           </p>
-          <div className="mt-space-lg rounded-xl bg-surface-container-low p-space-md font-body-sm text-on-surface-variant">
-            <p className="font-label-md text-on-surface mb-space-xs">Comptes démo</p>
-            Producteur <code>afi@localmatch.tg</code>
-            <br />
-            Acheteur <code>maquis@localmatch.tg</code>
-            <br />
-            Mot de passe <code>Fraislink1!</code>
-          </div>
         </form>
       </div>
     </div>
