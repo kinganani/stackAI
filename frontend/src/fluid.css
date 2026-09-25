@@ -1,0 +1,220 @@
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+img,
+video {
+  max-width: 100%;
+}
+
+header img:not(.brand-logo):not(.brand-mark),
+header svg,
+img.h-8,
+svg.h-8 {
+  width: 2rem;
+  height: 2rem;
+  max-width: none;
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.brand-orbit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.brand-orbit::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 2.5px solid #1e523f;
+  border-radius: 46% 54% 42% 58% / 52% 40% 60% 48%;
+  animation: onduler 3.2s ease-in-out infinite, gravite 9s linear infinite;
+  pointer-events: none;
+}
+
+.brand-orbit::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 0, #d95d39 0 4px, transparent 4.5px);
+  animation: gravite 4.5s linear infinite;
+  pointer-events: none;
+}
+
+.brand-orbit-lg::before {
+  inset: -10px;
+  border-width: 3px;
+}
+
+.brand-orbit-lg::after {
+  inset: -10px;
+  background: radial-gradient(circle at 50% 0, #d95d39 0 6px, transparent 6.5px);
+}
+
+.brand-mark,
+.brand-logo {
+  display: block;
+  position: relative;
+  z-index: 1;
+  height: 3.35rem;
+  width: auto;
+  max-width: 5.4rem;
+  object-fit: contain;
+  object-position: center;
+  flex-shrink: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+@keyframes onduler {
+  0%, 100% { border-radius: 46% 54% 42% 58% / 52% 40% 60% 48%; }
+  50% { border-radius: 58% 42% 56% 44% / 40% 60% 46% 54%; }
+}
+
+@keyframes gravite {
+  to { transform: rotate(360deg); }
+}
+
+.brand-logo-photo {
+  display: block;
+  position: relative;
+  z-index: 1;
+  width: min(240px, 64vw);
+  height: auto;
+  object-fit: contain;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.brand-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.brand-hero-mark {
+  width: 4.5rem;
+  height: 4.5rem;
+  max-width: 4.5rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.brand-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.brand-word-lg {
+  font-size: clamp(1.6rem, 4vw, 2rem);
+}
+
+.brand-tag {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #404944;
+}
+
+.brand-word {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #003b29;
+  white-space: nowrap;
+}
+
+.brand-logo-hero {
+  display: block;
+  width: min(280px, 72vw);
+  height: auto;
+  max-width: 280px;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 10px 24px rgba(30, 82, 63, 0.16));
+}
+
+@media (max-width: 420px) {
+  .brand-word {
+    display: none;
+  }
+}
+
+header > div,
+header nav,
+main,
+main section {
+  min-width: 0;
+}
+
+@media (max-width: 1023px) {
+  main {
+    padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .grid-cols-12,
+  .grid-cols-4 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .grid-cols-3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .grid-cols-2,
+  .grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .text-headline-xl {
+    font-size: 1.7rem !important;
+    line-height: 2.1rem !important;
+  }
+
+  .px-margin {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+  header nav a {
+    padding-left: 0.45rem !important;
+    padding-right: 0.45rem !important;
+    font-size: 13px !important;
+  }
+}
