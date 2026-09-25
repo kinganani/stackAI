@@ -1,2 +1,2 @@
 # stackAI
-compétision pour devellopeur 
+COMPÉTITION DÉVELOPPEUR ESIG TECH ARENA
