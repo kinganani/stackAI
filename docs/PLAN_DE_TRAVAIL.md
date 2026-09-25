@@ -54,7 +54,7 @@ Matching, tarif dégressif et formule `Cash(j)` restent du code Python. Le modè
 
 ### Vague 1 — à livrer en premier
 
-Déclaration rapide, matching + notification par polling (≤ 4 s), réservation atomique, écran RDV (`adresse_collecte` + lien Maps), comptes et offres seed Abidjan, README de lancement.
+Déclaration rapide, matching + notification par polling (≤ 4 s), réservation atomique, écran RDV (`adresse_collecte` + lien Maps), comptes et offres seed Lomé (Togo), README de lancement.
 
 ### Vague 2 — après un parcours vague 1 rejouable
 
@@ -78,7 +78,7 @@ Hors de ces deux vagues : PSP Mobile Money, paiement carte, apps stores, chatbot
 
 1. `POST /api/stocks/`, `GET /api/stocks/mine/`, `POST /api/stocks/{id}/cancel/`.
 2. Champs : produit, quantité, unité, quartier, lat/lng, heures restantes (saisie manuelle en vague 1), `adresse_collecte`.
-3. Quartiers : Adjamé, Yopougon, Cocody, Abobo, Treichville, Marcory, Plateau, Koumassi, avec centroïde si le GPS est refusé.
+3. Quartiers de Lomé : Assigamé, Bè, Tokoin, Hedzranawoé, Déckon, Adidogomé, Kégué, Agoè, avec centroïde si le GPS est refusé. Produits du secteur agricole uniquement.
 4. Statuts : `draft → live → partial → exhausted | expired | cancelled`.
 5. Écran vendeur : formulaire ≤ 30 s + liste de ses offres.
 

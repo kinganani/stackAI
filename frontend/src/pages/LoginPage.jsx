@@ -1,77 +1,72 @@
 import { useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import Logo from "../components/Logo.jsx";
 import { api } from "../api.js";
-import { useAuth } from "../AuthContext.jsx";
-import { IMAGES, fieldClass } from "../ui.js";
+import { useAuth } from "../auth.jsx";
+import { useNotify } from "../notify.jsx";
 
 export default function LoginPage() {
-  const { setSession } = useAuth();
-  const nav = useNavigate();
-  const loc = useLocation();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { user, ready, establish } = useAuth();
+  const notes = useNotify();
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const seller = params.get("role") === "seller";
+  const [pending, setPending] = useState(false);
 
-  async function submit(e) {
-    e.preventDefault();
+  async function onSubmit(event) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    setPending(true);
     setError("");
-    setBusy(true);
     try {
-      const fd = new FormData(e.currentTarget);
-      const data = await api.login({
-        email: String(fd.get("email") || email).trim().toLowerCase(),
-        password: String(fd.get("password") || password),
+      const session = await api.login({
+        identifiant: String(data.get("identifiant") || ""),
+        password: String(data.get("password") || ""),
       });
-      setSession(data);
-      const from = loc.state?.from;
-      if (from) nav(from, { replace: true });
-      else nav(data.profile.role === "seller" ? "/lots" : "/marche", { replace: true });
+      establish(session);
+      notes.push({ tone: "success", title: "Connexion réussie", body: session.user.full_name || "Compte ouvert." });
+      const suite = params.get("suite") || "";
+      const safeSuite = suite.startsWith("/") && !suite.startsWith("//") ? suite : "";
+      if (session.user.role === "buyer" && safeSuite) navigate(safeSuite);
+      else navigate(session.user.role === "seller" ? "/vendeur" : "/client");
     } catch (err) {
-      setError(err.message || "Connexion impossible.");
-    } finally {
-      setBusy(false);
+      setError(err.message);
+      notes.push({ tone: "error", title: "Connexion impossible", body: err.message });
+      setPending(false);
     }
   }
 
+  if (ready && user) {
+    const suite = params.get("suite") || "";
+    const safeSuite = suite.startsWith("/") && !suite.startsWith("//") ? suite : "";
+    const home = user.role === "buyer" && safeSuite ? safeSuite : user.role === "seller" ? "/vendeur" : "/client";
+    return <Navigate to={home} replace />;
+  }
+
   return (
-    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
-      <div className="relative hidden lg:block">
-        <img src={seller ? IMAGES.tomate : IMAGES.fruit} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-primary/75" />
-        <div className="relative h-full flex flex-col justify-end p-space-2xl text-on-primary">
-          <p className="font-label-sm uppercase tracking-widest text-primary-fixed">LocalMatch · Lomé</p>
-          <h1 className="font-headline-lg mt-space-sm">
-            {seller ? "Publiez un lot avant la fin de fenêtre." : "Les lots du rayon, scorés pour vous."}
-          </h1>
-        </div>
-      </div>
-      <div className="flex items-center justify-center px-margin py-space-2xl">
-        <form onSubmit={submit} className="w-full max-w-md">
-          <Logo />
-          <p className="font-headline-lg text-primary mt-space-lg">Connexion</p>
-          <p className="font-body-md text-on-surface-variant mb-space-lg">
-            {seller ? "Espace producteur / vendeur" : params.get("role") === "buyer" ? "Espace acheteur" : "Accès LocalMatch"}
-          </p>
-          {error && <p className="mb-space-md text-error font-body-sm bg-error-container text-on-error-container rounded-xl px-space-md py-space-sm">{error}</p>}
-          <label className="font-label-md">Email</label>
-          <input name="email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} className={`${fieldClass} mt-space-xs mb-space-md`} />
-          <label className="font-label-md">Mot de passe</label>
-          <input name="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={`${fieldClass} mt-space-xs mb-space-lg`} />
-          <button disabled={busy} className="w-full h-12 rounded-xl bg-primary text-on-primary font-label-lg disabled:opacity-60">
-            {busy ? "Connexion…" : "Entrer"}
-          </button>
-          <p className="mt-space-md font-body-sm text-on-surface-variant">
-            Pas de compte ?{" "}
-            <Link className="text-secondary font-bold" to={`/inscription${seller ? "?role=seller" : ""}`}>
-              Inscription
-            </Link>
-          </p>
-        </form>
-      </div>
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
+      <form onSubmit={onSubmit} className="w-full max-w-md bg-surface-container-lowest rounded-2xl border border-[#e2e8f0] shadow-[0_10px_24px_-4px_rgba(30,82,63,0.14)] p-6 flex flex-col gap-4">
+        <Link to="/" className="inline-flex"><Logo /></Link>
+        <h1 className="font-headline-lg text-headline-lg text-on-surface">Connexion</h1>
+        <p className="font-body-md text-on-surface-variant">Entre l’e-mail ou le numéro choisis à l’inscription, puis le code.</p>
+        {error && (
+          <p className="rounded-xl bg-error-container text-on-error-container px-3 py-2 font-body-sm">{error}</p>
+        )}
+        <label className="flex flex-col gap-1 font-label-md">
+          E-mail ou téléphone
+          <input name="identifiant" type="text" required placeholder="afi@exemple.tg" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 font-body-md focus:outline-none focus:ring-2 focus:ring-[#2b7057]" />
+        </label>
+        <label className="flex flex-col gap-1 font-label-md">
+          Code d’accès
+          <input name="password" type="password" required minLength={8} placeholder="8 caractères minimum" className="h-12 rounded-xl border-[1.5px] border-[#e2e8f0] px-3 font-body-md focus:outline-none focus:ring-2 focus:ring-[#2b7057]" />
+        </label>
+        <button type="submit" disabled={pending} className="h-12 rounded-xl bg-primary text-on-primary font-label-lg disabled:opacity-60">
+          {pending ? "Connexion…" : "Se connecter"}
+        </button>
+        <p className="font-body-sm text-on-surface-variant">
+          Pas encore de compte ? <Link to="/inscription" className="text-primary font-bold">Créer un compte</Link>
+        </p>
+      </form>
     </div>
   );
 }

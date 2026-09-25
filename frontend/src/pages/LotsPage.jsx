@@ -1,63 +1,88 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import Shell from "../components/Shell.jsx";
 import { api } from "../api.js";
-import { fmtFcfa, statusLabel } from "../quartiers.js";
-import LotThumb from "../components/LotThumb.jsx";
-import { hoursLeftLabel } from "../ui.js";
+import { useAuth } from "../auth.jsx";
+
+const statusLabel = {
+  live: "En vente",
+  partial: "Partiel",
+  expired: "Expiré",
+  exhausted: "Épuisé",
+  cancelled: "Annulé",
+  draft: "Brouillon",
+};
 
 export default function LotsPage() {
+  const { user } = useAuth();
   const [lots, setLots] = useState([]);
-  const [error, setError] = useState("");
-
-  async function load() {
-    try {
-      setLots(await api.mine());
-    } catch (err) {
-      setError(err.message);
-    }
-  }
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    load();
-  }, []);
+    let alive = true;
+    if (!user || user.role !== "seller") {
+      setLots([]);
+      setLoading(false);
+      return undefined;
+    }
+    api.myStocks()
+      .then((data) => {
+        if (alive) setLots(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (alive) setLots([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user]);
+
+  async function cancel(id) {
+    await api.cancelStock(id);
+    setLots((current) => current.filter((lot) => lot.id !== id));
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-margin py-space-lg">
-      <div className="flex flex-wrap justify-between items-end gap-space-md mb-space-lg">
-        <div>
-          <p className="font-label-sm text-secondary uppercase tracking-widest">Producteur</p>
-          <h1 className="font-headline-lg text-primary">Mes lots en souffrance</h1>
+    <Shell>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="font-label-sm uppercase tracking-wide text-primary">Vendeur</p>
+            <h1 className="font-headline-lg text-headline-lg text-primary">Mes lots</h1>
+          </div>
+          <Link to="/vendeur/publier" className="h-12 px-4 rounded-xl bg-primary text-on-primary font-label-lg inline-flex items-center gap-2">
+            <span className="material-symbols-outlined">add</span>
+            Nouveau lot
+          </Link>
         </div>
-        <Link to="/scan" className="h-11 px-space-lg rounded-xl bg-secondary text-on-secondary font-label-md inline-flex items-center">
-          Scan IA · nouveau lot
-        </Link>
+        <div className="grid gap-3">
+          {lots.map((lot) => (
+            <article key={lot.id} className="bg-surface-container-lowest rounded-2xl border border-[#e2e8f0] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-headline-sm text-headline-sm font-bold">{lot.product}</h2>
+                  <span className={`px-2 py-0.5 rounded-full font-label-sm ${lot.status === "partial" ? "bg-secondary-fixed text-on-secondary-fixed" : lot.status === "expired" || lot.status === "cancelled" ? "bg-surface-container-high text-outline" : "bg-primary-fixed text-on-primary-fixed"}`}>{statusLabel[lot.status] || lot.status}</span>
+                </div>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{lot.qty_available} {lot.unit} • {lot.quarter} • {Number(lot.hours_left || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} h</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="font-price-display text-price-display text-primary font-extrabold">{Number(lot.published_price || 0).toLocaleString("fr-FR")} <span className="font-price-currency">FCFA</span></span>
+                {lot.status === "live" || lot.status === "partial" ? (
+                  <button type="button" onClick={() => cancel(lot.id)} className="h-10 px-3 rounded-xl border border-secondary text-secondary font-label-md">Annuler</button>
+                ) : null}
+              </div>
+            </article>
+          ))}
+          {!loading && lots.length === 0 ? (
+            <p className="rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] p-4 font-body-md text-on-surface-variant">
+              {user && user.role === "seller" ? "Aucun lot publié pour le moment." : "Connectez-vous avec un compte vendeur pour voir vos lots."}
+            </p>
+          ) : null}
+        </div>
       </div>
-      {error && <p className="text-error mb-space-md">{error}</p>}
-      <div className="grid sm:grid-cols-2 gap-space-md">
-        {lots.map((lot) => (
-          <article key={lot.id} className="rounded-xl overflow-hidden bg-surface-container-lowest shadow-sm flex items-stretch">
-            <LotThumb lot={lot} className="w-36 sm:w-44 min-h-[10.5rem] shrink-0" />
-            <div className="p-space-md flex-1 min-w-0">
-              <Link to={`/lots/${lot.id}`} className="font-headline-sm text-primary">
-                {lot.product_name}
-              </Link>
-              <p className="font-body-sm text-on-surface-variant">
-                {lot.qty_available}/{lot.qty_initial} {lot.unit} · {statusLabel(lot.status)}
-              </p>
-              <p className="font-label-sm text-secondary mt-space-xs">{hoursLeftLabel(lot.hours_left)}</p>
-              <p className="font-price-display text-primary">{fmtFcfa(lot.published_price)}</p>
-              {lot.status !== "cancelled" && lot.status !== "exhausted" && (
-                <button type="button" onClick={() => api.cancelStock(lot.id).then(load)} className="mt-space-sm font-label-md text-error">
-                  Retirer du marché
-                </button>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
-      {lots.length === 0 && (
-        <p className="rounded-xl bg-surface-container-low p-space-lg text-on-surface-variant">Aucun lot. Déclarez un stock périssable via le scan IA.</p>
-      )}
-    </div>
+    </Shell>
   );
 }

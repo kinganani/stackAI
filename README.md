@@ -1,55 +1,32 @@
 # LocalMatch
 
-**Défi 1 — Agriculture & Commerce** (ESIG Tech Arena) : vente d’urgence de denrées périssables à Lomé.
+Vente d’urgence de stocks périssables — ESIG Tech Arena. Le navigateur parle à Django. Django parle à PostgreSQL (Supabase). Le SQL du schéma est dans `backend/sql/`.
 
-Un producteur photographie son lot → le **scan IA** (Django) estime fruit ou légume, fraîcheur et moisissure, propose un prix → les acheteurs du rayon sont notifiés → réservation → **collecte** (`adresse_collecte` + Google Maps).
+## 1. Créer la base
 
-Dépôt : [github.com/kinganani/stackAI](https://github.com/kinganani/stackAI)
+1. Créer un projet sur [supabase.com](https://supabase.com).
+2. Ouvrir **SQL Editor** et exécuter, dans l’ordre :
+   - `backend/sql/001_schema.sql`
+   - `backend/sql/003_phone.sql` si la table existait déjà sans téléphone
+3. **Project Settings → Database → Connection string → URI**, mode **Session** (port **5432**), hôte du pooler `aws-1-….pooler.supabase.com`. L’utilisateur est `postgres.<ref-projet>`.
+4. Copier `backend/.env.example` vers `backend/.env` et coller l’URI dans `DATABASE_URL`. Elle doit finir par `?sslmode=require`.
 
-## Stack
+Il n’y a pas de compte de démonstration. L’inscription sur le site crée le compte dans `profiles`.
 
-| Couche | Techno |
-| --- | --- |
-| Frontend | React.js (Vite) — `frontend/` |
-| Backend | Django 5 + DRF + SimpleJWT — `backend/` |
-| Base | PostgreSQL (`DATABASE_URL`) ou SQLite en local |
-
-Pas de Next.js, pas de Supabase. Le JWT **access** reste en mémoire ; le **refresh** est un cookie HttpOnly. Pas de JWT dans `localStorage`.
-
-## Fonctionnalités (vague 1)
-
-- Déclaration vendeur : photo du lot, quantité, quartier, expirabilité, prix
-- Matching Django (proximité + urgence + volume + profil), pas un filtre km côté React
-- Notifications acheteur (polling) : nouveau lot, commande acceptée (téléphone + Maps)
-- Réservation avec `select_for_update` : les autres voient **la quantité restante** ; à 0, **le produit est indisponible**
-- La fiche affiche **la photo du producteur**, pas une image générique
-- Scan IA : fruits / légumes uniquement (pas de poisson) ; lot pourri → publication bloquée
-
-## Lancer en local
-
-Deux processus en parallèle. Si Django n’écoute pas sur `:8000`, Vite affiche `ECONNREFUSED` sur `/api/...`.
-
-**1. API**
+## 2. Lancer l’API
 
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-cp ../.env.example ../.env   # ou backend/.env
 python manage.py migrate
-python manage.py runserver 127.0.0.1:8000
+python manage.py runserver
 ```
 
-Vérifier : http://127.0.0.1:8000/api/health/
+`migrate` crée seulement les tables internes de Django. Les tables métier viennent du SQL.
 
-PostgreSQL optionnel :
-
-```bash
-docker compose up -d
-# dans .env : DATABASE_URL=postgres://fraislink:fraislink@localhost:5432/fraislink
-```
-
-**2. Interface**
+## 3. Lancer l’interface
 
 ```bash
 cd frontend
@@ -57,20 +34,6 @@ npm install
 npm run dev
 ```
 
-Ouvrir **http://localhost:5173**. Le proxy Vite envoie `/api` et `/media` vers Django.
+Ouvrir http://localhost:5173/connexion
 
-Créer un compte via **Inscription** (producteur ou acheteur). Les comptes de seed restent possibles en local uniquement :
-
-```bash
-python manage.py seed_demo
-```
-
-## Parcours
-
-1. Producteur → Scan IA (photo) → publier le lot
-2. Acheteur → Marché (lots scorés du rayon) → bloquer une quantité → Maps
-3. Producteur → Demandes → accepter → contact et itinéraire
-
-## Sécurité (rappel)
-
-CORS en whitelist, secrets dans `.env` (gitignoré), permissions vendeur / acheteur, ORM + `select_for_update` sur le stock.
+Vague 1 branchée : inscription, connexion, profil, déclaration de stock, liste vendeur, offres dans le rayon (score), réservation avec adresse et lien Maps. La photo Gemini reste pour la vague 2.
