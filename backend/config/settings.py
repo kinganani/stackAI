@@ -33,7 +33,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-    "config.db_guard.RequireDatabaseUrlMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -80,9 +79,6 @@ if DATABASE_URL and os.getenv("DJANGO_USE_SQLITE") != "1":
             ssl_require=os.getenv("DATABASE_SSL", "true").lower() == "true",
         )
     }
-elif ON_VERCEL:
-    # Import settings during `vercel build` has no secrets. Real requests need DATABASE_URL.
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
