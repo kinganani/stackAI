@@ -9,8 +9,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
-DEBUG = os.getenv("DEBUG", "False" if os.getenv("VERCEL") else "True") == "True"
-DEMO_MODE = os.getenv("DEMO_MODE", "False" if os.getenv("VERCEL") else "True") == "True"
+ON_VERCEL = bool(os.getenv("VERCEL"))
+DEBUG = False if ON_VERCEL else os.getenv("DEBUG", "True") == "True"
+DEMO_MODE = os.getenv("DEMO_MODE", "False" if ON_VERCEL else "True") == "True"
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -54,7 +55,12 @@ TEMPLATES = [{
     ]},
 }]
 
-DATABASE_URL = os.getenv("DATABASE_URL", "")
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_URL")
+    or os.getenv("POSTGRES_PRISMA_URL")
+    or ""
+).strip()
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -64,6 +70,12 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 
 
+if os.getenv("VERCEL") and not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL manquant sur Vercel. Colle l’URI Supabase (port 5432, sslmode=require) "
+        "dans Project Settings → Environment Variables."
+    )
+
 if DATABASE_URL and os.getenv("DJANGO_USE_SQLITE") != "1":
     DATABASES = {
         "default": dj_database_url.parse(
@@ -72,6 +84,8 @@ if DATABASE_URL and os.getenv("DJANGO_USE_SQLITE") != "1":
             ssl_require=os.getenv("DATABASE_SSL", "true").lower() == "true",
         )
     }
+elif os.getenv("VERCEL"):
+    raise RuntimeError("SQLite n’est pas utilisable sur Vercel. Configure DATABASE_URL.")
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 

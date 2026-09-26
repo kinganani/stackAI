@@ -48,13 +48,13 @@ Un seul projet Vercel sert l’interface **et** l’API (`/api/...`) sur le mêm
 | Variable | Rôle |
 | --- | --- |
 | `SECRET_KEY` | Clé Django (longue et unique) |
-| `DATABASE_URL` | URI Supabase (port 5432, `sslmode=require`) |
+| `DATABASE_URL` | **Obligatoire.** URI Supabase (port 5432, `sslmode=require`). Sans elle, login/marché plantent. |
 | `GEMINI_API_KEY` | Analyse photo |
 | `CLOUDINARY_URL` | `cloudinary://KEY:SECRET@CLOUD` |
 | `VAPID_PUBLIC_KEY` | Push PWA (déjà dans `backend/.env` local) |
 | `VAPID_PRIVATE_KEY` | Même paire, une ligne, `\n` pour les retours PEM |
 
-Optionnel : `GEMINI_MODEL`, `VAPID_SUBJECT`, `DEBUG=False`.
+Ne copie **pas** `DEBUG=True` depuis le `.env` local. Après avoir ajouté `DATABASE_URL`, redéploie (Redeploy) pour que Django lise la variable.
 
 Ne mets **pas** `VITE_API_URL` : le site appelle `/api` sur le même hôte.
 

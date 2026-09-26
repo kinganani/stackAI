@@ -29,7 +29,11 @@ async function request(path, options = {}) {
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data.detail || "Requête impossible.");
+    const detail = typeof data.detail === "string" ? data.detail : "";
+    const fallback = response.status >= 500
+      ? "Le serveur n’a pas pu parler à la base. Sur Vercel, ajoute DATABASE_URL (URI Supabase)."
+      : "Requête impossible.";
+    const error = new Error(detail || fallback);
     error.status = response.status;
     error.payload = data;
     throw error;
