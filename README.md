@@ -40,7 +40,13 @@ Ouvrir http://localhost:5173/connexion
 
 ## 4. Déploiement Vercel (toute l’app)
 
-Un seul projet Vercel sert l’interface **et** l’API (`/api/...`) sur le même domaine. Root Directory = racine du dépôt (pas `frontend`). Framework Preset = **Django** (déjà forcé dans `vercel.json`).
+Un seul projet Vercel sert l’interface **et** l’API (`/api/...`) sur le même domaine.
+
+Dans Vercel → Project Settings → General :
+- **Root Directory** : vide (racine du dépôt, **pas** `frontend`)
+- **Framework Preset** : Django (forcé aussi dans `vercel.json`)
+
+Ne te fie pas à un log `Commit: a65364e` + `pattern "wsgi.py"` : c’est l’ancien `vercel.json`. Le fichier actuel **n’a plus** de bloc `functions`.
 
 1. Import [kinganani/stackAI](https://github.com/kinganani/stackAI).
 2. Colle uniquement ces variables (Settings → Environment Variables), Production + Preview :

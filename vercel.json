@@ -2,11 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "django",
   "installCommand": "pip install -r requirements.txt && npm install --prefix frontend",
-  "buildCommand": "npm run build --prefix frontend && python scripts/pack_spa.py",
-  "functions": {
-    "backend/config/wsgi.py": {
-      "maxDuration": 60,
-      "includeFiles": "backend/**"
-    }
-  }
+  "buildCommand": "npm run build --prefix frontend && python scripts/pack_spa.py"
 }
