@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Shell from "../components/Shell.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import CollecteMap from "../components/CollecteMap.jsx";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
@@ -68,8 +69,7 @@ function CollecteList() {
   return (
     <Shell>
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
-        <p className="font-label-sm uppercase tracking-wide text-secondary">Collecte</p>
-        <h1 className="font-headline-lg text-headline-lg text-primary">Tes commandes</h1>
+        <PageHeader eyebrow="Collecte" title="Tes commandes" />
         {error && <p className="rounded-xl bg-error-container px-4 py-3 font-body-sm text-on-error-container">{error}</p>}
         {ready && !user && (
           <section className="rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest p-5">
@@ -97,7 +97,7 @@ function CollecteList() {
 }
 
 function CollecteDetail({ id }) {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const notes = useNotify();
   const [row, setRow] = useState(null);
   const [error, setError] = useState("");
@@ -107,11 +107,14 @@ function CollecteDetail({ id }) {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    if (!ready || !user) return undefined;
     let alive = true;
     function load() {
       api.reservation(id)
         .then((data) => {
-          if (alive) setRow(data);
+          if (!alive) return;
+          setRow(data);
+          setError("");
         })
         .catch((err) => {
           if (alive) setError(err.message || "Commande introuvable.");
@@ -123,7 +126,7 @@ function CollecteDetail({ id }) {
       alive = false;
       clearInterval(poll);
     };
-  }, [id]);
+  }, [id, ready, user]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -134,6 +137,20 @@ function CollecteDetail({ id }) {
   const pending = row?.status === "pending_payment" || row?.status === "pending_priority";
   const seller = user?.role === "seller";
   const amount = row ? Number(row.amount_due || 0).toLocaleString("fr-FR") : "—";
+  if (ready && !user) {
+    return (
+      <Shell>
+        <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
+          <PageHeader eyebrow="Commande" title="Collecte du lot" />
+          <section className="rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest p-5">
+            <p className="font-body-md text-on-surface-variant">Connecte-toi pour suivre cette commande.</p>
+            <Link to={`/connexion?suite=${encodeURIComponent(`/rdv?id=${id}`)}`} className="mt-4 inline-flex h-12 items-center rounded-xl bg-primary px-5 font-label-md text-on-primary">Connexion</Link>
+          </section>
+        </div>
+      </Shell>
+    );
+  }
+
   const detail = row ? `${row.qty} ${row.unit} de ${row.product} • ${amount} FCFA` : error || "Chargement de la commande…";
 
   async function accept() {
@@ -162,8 +179,7 @@ function CollecteDetail({ id }) {
     <Shell>
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
         <Link to="/rdv" className="font-label-sm text-primary">Toutes les commandes</Link>
-        <p className="font-label-sm uppercase tracking-wide text-secondary">{STATUS[row?.status] || "Commande"}</p>
-        <h1 className="font-headline-lg text-headline-lg text-primary">Collecte du lot</h1>
+        <PageHeader eyebrow={STATUS[row?.status] || "Commande"} title="Collecte du lot" />
         {error && <p className="rounded-xl bg-error-container px-4 py-3 font-body-sm text-on-error-container">{error}</p>}
         {notice && <p className="rounded-xl border border-[rgba(0,59,41,0.16)] bg-[rgba(0,59,41,0.08)] px-4 py-3 font-body-sm text-[#003b29]">{notice}</p>}
         {row?.image_url && <img src={row.image_url} alt="" className="aspect-[4/3] w-full max-w-sm rounded-2xl object-cover" />}

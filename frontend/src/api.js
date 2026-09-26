@@ -29,9 +29,14 @@ async function request(path, options = {}) {
   }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const detail = typeof data.detail === "string" ? data.detail : "";
+    const expired = response.status === 401 && !path.includes("/api/auth/");
+    const detail = expired
+      ? "Ta session a expiré. Reconnecte-toi pour continuer."
+      : typeof data.detail === "string" ? data.detail : "";
     const fallback = response.status >= 500
-      ? "Le serveur n’a pas pu parler à la base. Sur Vercel, ajoute DATABASE_URL (URI Supabase)."
+      ? import.meta.env.DEV
+        ? "Le serveur n’a pas pu joindre la base de données. Vérifie ta connexion internet puis réessaie."
+        : "Le serveur n’a pas pu parler à la base. Sur Vercel, ajoute DATABASE_URL (URI Supabase)."
       : "Requête impossible.";
     const error = new Error(detail || fallback);
     error.status = response.status;

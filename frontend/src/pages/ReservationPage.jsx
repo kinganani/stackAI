@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import Shell from "../components/Shell.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { useNotify } from "../notify.jsx";
@@ -20,6 +21,7 @@ export default function ReservationPage() {
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(Boolean(id));
   const [qty, setQty] = useState(1);
+  const [draft, setDraft] = useState(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
 
@@ -65,6 +67,22 @@ export default function ReservationPage() {
   const unitPrice = Number(lot?.published_price || 0);
   const total = unitPrice * asked;
 
+  function typeQty(event) {
+    const digits = event.target.value.replace(/\D/g, "").replace(/^0+/, "");
+    if (!digits) {
+      setDraft("");
+      return;
+    }
+    const next = Math.min(Number(digits), Math.max(available, 1));
+    setQty(next);
+    setDraft(String(next));
+  }
+
+  function stepQty(delta) {
+    setDraft(null);
+    setQty((current) => Math.min(Math.max(1, current + delta), Math.max(available, 1)));
+  }
+
   async function confirm() {
     if (!ready || pending || !lot || available < 1) return;
     if (!user) {
@@ -102,8 +120,7 @@ export default function ReservationPage() {
   return (
     <Shell>
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
-        <p className="font-label-sm uppercase tracking-wide text-secondary">Réservation</p>
-        <h1 className="font-headline-lg text-headline-lg text-primary">Finaliser la commande</h1>
+        <PageHeader eyebrow="Réservation" title="Finaliser la commande" />
         {error && <p className="rounded-xl bg-error-container px-4 py-3 font-body-sm text-on-error-container">{error}</p>}
         {!id && (
           <section className="rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest p-5">
@@ -134,12 +151,26 @@ export default function ReservationPage() {
               <p className="font-label-md text-primary">{money(unitPrice)} / {lot.unit}</p>
             </div>
             <div className="flex flex-col gap-3 sm:col-span-2">
-              <div className="flex items-center justify-between rounded-xl bg-surface-container-low p-3">
-                <span className="font-label-md">Quantité</span>
+              <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-container-low p-3">
+                <label htmlFor="reservation-qty" className="flex flex-col">
+                  <span className="font-label-md">Quantité</span>
+                  <span className="font-body-sm text-on-surface-variant">Maximum {available} {lot.unit}</span>
+                </label>
                 <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setQty((current) => Math.max(1, current - 1))} className="h-10 w-10 rounded-lg bg-white font-bold text-primary" aria-label="Diminuer">-</button>
-                  <span className="w-10 text-center font-headline-sm font-bold text-primary">{asked}</span>
-                  <button type="button" onClick={() => setQty((current) => Math.min(available || 1, current + 1))} className="h-10 w-10 rounded-lg bg-white font-bold text-primary" aria-label="Augmenter">+</button>
+                  <button type="button" onClick={() => stepQty(-1)} disabled={asked <= 1} className="h-10 w-10 rounded-lg bg-white font-bold text-primary disabled:opacity-40" aria-label="Diminuer">-</button>
+                  <input
+                    id="reservation-qty"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={draft ?? String(asked)}
+                    onChange={typeQty}
+                    onFocus={(event) => event.target.select()}
+                    onBlur={() => setDraft(null)}
+                    className="h-10 w-16 rounded-lg border-[1.5px] border-[#e2e8f0] bg-white text-center font-headline-sm font-bold text-primary"
+                  />
+                  <span className="font-body-sm text-on-surface-variant">{lot.unit}</span>
+                  <button type="button" onClick={() => stepQty(1)} disabled={asked >= available} className="h-10 w-10 rounded-lg bg-white font-bold text-primary disabled:opacity-40" aria-label="Augmenter">+</button>
                 </div>
               </div>
               <div className="flex items-center justify-between">
@@ -147,7 +178,7 @@ export default function ReservationPage() {
                 <span className="font-headline-sm font-bold text-primary">{money(total)}</span>
               </div>
               <p className="font-body-sm text-on-surface-variant">La quantité est bloquée 20 minutes. Le producteur valide, puis envoie le point de collecte. Le règlement se fait au retrait.</p>
-              <button type="button" onClick={confirm} disabled={pending || available < 1 || !ready} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-label-lg text-on-primary disabled:opacity-60">
+              <button type="button" onClick={confirm} disabled={pending || available < 1 || !ready || draft === ""} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary font-label-lg text-on-primary disabled:opacity-60">
                 <span className="material-symbols-outlined">lock</span>
                 {available < 1 ? "Lot indisponible" : !user ? "Se connecter pour réserver" : pending ? "Envoi…" : "Confirmer la réservation"}
               </button>

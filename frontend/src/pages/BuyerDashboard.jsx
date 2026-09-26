@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
-import DashboardLayout, { CatalogCard, PageHeader, catalogCell, catalogHead } from "../components/DashboardLayout.jsx";
+import DashboardLayout, { CatalogCard, PageHeader, catalogBody, catalogCell, catalogHead, catalogLabel, catalogRow, catalogTable, catalogWide } from "../components/DashboardLayout.jsx";
 import { api } from "../api.js";
 import { useNotify } from "../notify.jsx";
 import { remainText } from "../ui.js";
@@ -155,7 +155,7 @@ function Search() {
       <PageHeader icon="search" title="Recherche" subtitle="La recherche reste dans ton rayon. Si le produit n’y est pas, la liste reste vide.">
         <SearchField />
       </PageHeader>
-      {!query.trim() && <p className="rounded-[22px] bg-white px-5 py-8 font-body-md text-outline">Saisis un produit, par exemple tomate ou plantain.</p>}
+      {!query.trim() && <p className="rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm px-5 py-8 font-body-md text-outline">Saisis un produit, par exemple tomate ou plantain.</p>}
       {query.trim() && <OfferTable title="Résultats" rows={filtered} loading={loading} query={query} onReserve={reserve} />}
     </>
   );
@@ -174,7 +174,7 @@ function Reservations() {
       </PageHeader>
       <CatalogCard title="Toutes les réservations" count={filtered.length}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left">
+          <table className={`${catalogTable} xl:min-w-[760px]`}>
             <thead className={catalogHead}>
               <tr>
                 {["Échéance", "Produit", "Retrait", "Quantité", "Prix", "Statut", "Collecte"].map((head) => (
@@ -182,16 +182,16 @@ function Reservations() {
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className={catalogBody}>
               {filtered.map((row) => (
-                <tr key={row.id} className="border-t border-[#eef2f4]">
-                  <td className={`${catalogCell} font-body-sm`}>{when(row.reserved_until)}</td>
-                  <td className={`${catalogCell} font-bold text-[#102033]`}>{row.product}</td>
-                  <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{row.adresse_collecte}</td>
-                  <td className={`${catalogCell} font-body-sm`}>{row.qty} {row.unit}</td>
-                  <td className={`${catalogCell} font-label-md`}>{fcfa(row.amount_due)}</td>
-                  <td className={`${catalogCell} font-body-sm text-primary`}>{statusLabel[row.status] || row.status}</td>
-                  <td className={catalogCell}>
+                <tr key={row.id} className={catalogRow}>
+                  <td data-label="Échéance" className={`${catalogCell} ${catalogLabel} order-1 font-body-sm xl:order-none`}>{when(row.reserved_until)}</td>
+                  <td className={`${catalogCell} ${catalogWide} font-bold text-on-surface`}>{row.product}</td>
+                  <td data-label="Retrait" className={`${catalogCell} ${catalogLabel} ${catalogWide} order-2 font-body-sm text-on-surface-variant xl:order-none`}>{row.adresse_collecte}</td>
+                  <td data-label="Quantité" className={`${catalogCell} ${catalogLabel} font-body-sm`}>{row.qty} {row.unit}</td>
+                  <td data-label="Prix" className={`${catalogCell} ${catalogLabel} font-label-md`}>{fcfa(row.amount_due)}</td>
+                  <td data-label="Statut" className={`${catalogCell} ${catalogLabel} order-1 font-body-sm text-primary xl:order-none`}>{statusLabel[row.status] || row.status}</td>
+                  <td className={`${catalogCell} ${catalogWide} order-3 xl:order-none`}>
                     <Link to={`/rdv?id=${row.id}`} className="font-label-md text-primary">
                       {row.status === "accepted" ? "Itinéraire" : "Suivi"}
                     </Link>
@@ -214,7 +214,7 @@ function OfferTable({ title, rows, loading, query, onReserve, salvage }) {
   return (
     <CatalogCard title={title} count={rows.length}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] text-left">
+        <table className={`${catalogTable} xl:min-w-[920px]`}>
           <thead className={catalogHead}>
             <tr>
               {["Article", "Catégorie", "Distance", "Prix (FCFA)", "Stock", "Statut", "Actions"].map((head) => (
@@ -222,31 +222,33 @@ function OfferTable({ title, rows, loading, query, onReserve, salvage }) {
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className={catalogBody}>
             {rows.map((offer) => {
               const rupture = Number(offer.qty_available) <= 0;
               return (
-                <tr key={offer.id} className="border-t border-[#eef2f4]">
-                  <td className={catalogCell}>
+                <tr key={offer.id} className={catalogRow}>
+                  <td className={`${catalogCell} ${catalogWide}`}>
                     <div className="flex items-center gap-3">
                       {offer.image_url ? (
-                        <img src={offer.image_url} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                        <img src={offer.image_url} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
                       ) : (
-                        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-fixed text-primary">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary">
                           <span className="material-symbols-outlined">nutrition</span>
                         </span>
                       )}
-                      <span className="font-label-md font-bold text-[#102033]">{offer.product}</span>
-                      {salvage || offer.channel === "transform" ? <span className="block font-label-sm text-[#a73918]">Encore exploitable</span> : null}
+                      <span className="min-w-0">
+                        <span className="block font-label-md font-bold text-on-surface">{offer.product}</span>
+                        {salvage || offer.channel === "transform" ? <span className="block font-label-sm text-[#a73918]">Encore exploitable</span> : null}
+                      </span>
                     </div>
                   </td>
-                  <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{categoryLabel[offer.category] || offer.category} • {offer.quarter}</td>
-                  <td className={`${catalogCell} font-body-sm`}>{km(offer.distance_km)}</td>
-                  <td className={`${catalogCell} font-label-md`}>{Number(offer.published_price).toLocaleString("fr-FR")} / {offer.unit}</td>
-                  <td className={`${catalogCell} font-bold ${rupture ? "text-secondary" : "text-primary"}`}>{rupture ? "Rupture" : offer.qty_available}</td>
-                  <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{remainText(offer)} restantes</td>
-                  <td className={catalogCell}>
-                    <div className="flex items-center justify-end gap-2">
+                  <td data-label="Catégorie" className={`${catalogCell} ${catalogLabel} font-body-sm text-on-surface-variant`}>{categoryLabel[offer.category] || offer.category} • {offer.quarter}</td>
+                  <td data-label="Distance" className={`${catalogCell} ${catalogLabel} font-body-sm`}>{km(offer.distance_km)}</td>
+                  <td data-label="Prix (FCFA)" className={`${catalogCell} ${catalogLabel} font-label-md`}>{Number(offer.published_price).toLocaleString("fr-FR")} / {offer.unit}</td>
+                  <td data-label="Stock" className={`${catalogCell} ${catalogLabel} font-bold ${rupture ? "text-secondary" : "text-primary"}`}>{rupture ? "Rupture" : offer.qty_available}</td>
+                  <td data-label="Statut" className={`${catalogCell} ${catalogLabel} ${catalogWide} font-body-sm text-on-surface-variant xl:col-span-1`}>{remainText(offer)} restantes</td>
+                  <td className={`${catalogCell} ${catalogWide}`}>
+                    <div className="flex items-center gap-2 xl:justify-end">
                       <input
                         type="number"
                         min="1"
@@ -256,7 +258,7 @@ function OfferTable({ title, rows, loading, query, onReserve, salvage }) {
                         className="h-9 w-16 rounded-lg border border-[#e2e8f0] px-2"
                         aria-label={`Quantité pour ${offer.product}`}
                       />
-                      <button type="button" onClick={() => onReserve(offer, Number(qty[offer.id] || 1))} className="h-9 rounded-lg bg-primary px-3 text-on-primary font-label-md">
+                      <button type="button" onClick={() => onReserve(offer, Number(qty[offer.id] || 1))} className="h-9 flex-1 rounded-lg bg-primary px-3 text-on-primary font-label-md xl:flex-none">
                         Réserver
                       </button>
                     </div>

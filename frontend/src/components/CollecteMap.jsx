@@ -265,7 +265,7 @@ export default function CollecteMap({ destination, mode, fallback }) {
           id: `arrived:${destination.lat.toFixed(5)},${destination.lng.toFixed(5)}`,
           tone: "success",
           keep: true,
-          title: "Vous êtes arrivé",
+          title: "Tu es arrivé",
           body: "Le point de collecte est atteint.",
         });
       }
@@ -305,7 +305,7 @@ export default function CollecteMap({ destination, mode, fallback }) {
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div>
           <p className="font-label-md font-bold text-on-surface">Plan de collecte</p>
-          <p className="font-body-sm text-on-surface-variant">{arrived ? "Vous êtes arrivé" : status}</p>
+          <p className="font-body-sm text-on-surface-variant">{arrived ? "Tu es arrivé" : status}</p>
         </div>
         <div className="text-right">
           {arrived ? (
@@ -322,7 +322,7 @@ export default function CollecteMap({ destination, mode, fallback }) {
         <div ref={box} className="collecte-map relative z-0 h-[420px] w-full" />
         {arrived && (
           <div className="absolute inset-x-4 top-4 z-10 rounded-2xl bg-[#003b29] px-4 py-3 text-white shadow-lg">
-            <p className="font-label-md font-bold">Vous êtes arrivé</p>
+            <p className="font-label-md font-bold">Tu es arrivé</p>
             <p className="font-body-sm text-white/85">Le point de collecte est là.</p>
           </div>
         )}

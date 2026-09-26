@@ -60,10 +60,10 @@ export default function ProfilPage() {
     return (
       <Shell>
         <div className="mx-auto max-w-xl px-4 py-10">
-          <section className="rounded-[28px] bg-white p-6 shadow-[0_10px_30px_-18px_rgba(0,59,41,0.45)]">
+          <section className="rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm p-6">
             <p className="font-headline-lg text-headline-lg font-bold text-primary">Profil</p>
             <p className="mt-2 font-body-md text-on-surface-variant">Connecte-toi pour ouvrir l’espace du compte.</p>
-            <Link to="/connexion?suite=/profil" className="mt-5 inline-flex h-12 items-center rounded-full bg-primary px-5 font-label-md text-on-primary">Connexion</Link>
+            <Link to="/connexion?suite=/profil" className="mt-5 inline-flex h-12 items-center rounded-xl bg-primary px-5 font-label-lg text-on-primary">Connexion</Link>
           </section>
         </div>
       </Shell>
@@ -95,13 +95,13 @@ export default function ProfilPage() {
     <Shell>
       <div className="mx-auto flex max-w-xl flex-col gap-4 px-4 py-6 sm:px-6">
         {error && <p className="rounded-xl bg-error-container px-4 py-3 font-body-sm text-on-error-container">{error}</p>}
-        <section className="overflow-hidden rounded-[28px] bg-white shadow-[0_16px_40px_-24px_rgba(0,59,41,0.55)]">
+        <section className="overflow-hidden rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm">
           <div className="h-28 bg-gradient-to-br from-primary via-primary-container to-[#245c46]" />
           <div className="px-5 pb-6">
             <div className="-mt-12 flex h-24 w-24 items-center justify-center rounded-full bg-white text-[28px] font-extrabold text-primary shadow-[0_8px_20px_-10px_rgba(0,59,41,0.6)] ring-4 ring-white">
               {initials(shown.full_name)}
             </div>
-            <h1 className="mt-3 font-headline-lg text-headline-lg font-extrabold text-[#102033]">{shown.full_name || "Compte"}</h1>
+            <h1 className="mt-3 font-headline-lg text-headline-lg text-primary">{shown.full_name || "Compte"}</h1>
             <p className="mt-1 font-body-md text-on-surface-variant">{role} à {quarter}, Lomé</p>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="inline-flex items-center gap-1 rounded-full bg-primary-fixed px-3 py-1.5 font-label-sm font-bold text-on-primary-fixed">
@@ -116,7 +116,7 @@ export default function ProfilPage() {
           </div>
         </section>
 
-        <section className="divide-y divide-[#eef2f4] overflow-hidden rounded-[28px] bg-white shadow-[0_10px_30px_-18px_rgba(0,59,41,0.35)]">
+        <section className="divide-y divide-[#eef2f4] overflow-hidden rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm">
           <Fact icon="call" label="Téléphone" value={spacedPhone(shown.phone)} />
           <Fact icon="mail" label="E-mail" value={shown.email} />
           <Fact icon="pin_drop" label="Quartier" value={`${quarter}, Lomé`} />
@@ -125,7 +125,7 @@ export default function ProfilPage() {
           )}
         </section>
 
-        <section className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_30px_-18px_rgba(0,59,41,0.35)]">
+        <section className="overflow-hidden rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm">
           <p className="px-4 pb-1 pt-4 font-label-sm uppercase tracking-wide text-outline">Ton espace</p>
           {shortcuts.map((item) => (
             <Link key={item.to} to={item.to} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-container-low">

@@ -2,6 +2,12 @@ import { useState } from "react";
 
 const quarters = ["Assigamé", "Bè", "Tokoin", "Hedzranawoé", "Déckon", "Adidogomé", "Kégué", "Agoè"];
 
+const locationErrors = {
+  1: "Autorisation refusée. Autorise la localisation dans les réglages du navigateur (icône à gauche de l’adresse), puis réessaie.",
+  2: "Position introuvable : ce navigateur ou cet appareil ne sait pas te localiser. Active la localisation ou essaie un autre navigateur.",
+  3: "La recherche de position a pris trop de temps. Réessaie, de préférence à l’extérieur ou près d’une fenêtre.",
+};
+
 export default function PlaceFields() {
   const [status, setStatus] = useState("");
   const [coords, setCoords] = useState(null);
@@ -17,7 +23,7 @@ export default function PlaceFields() {
         setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
         setStatus("Position reçue.");
       },
-      () => setStatus("Autorisation refusée. Elle est obligatoire pour continuer."),
+      (error) => setStatus(locationErrors[error.code] || "Position impossible à obtenir. Réessaie."),
       { enableHighAccuracy: true, timeout: 12000 }
     );
   }

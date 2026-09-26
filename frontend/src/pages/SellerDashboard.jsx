@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
-import DashboardLayout, { CatalogCard, PageHeader, catalogCell, catalogHead } from "../components/DashboardLayout.jsx";
+import DashboardLayout, { CatalogCard, PageHeader, catalogBody, catalogCell, catalogHead, catalogLabel, catalogRow, catalogTable, catalogWide } from "../components/DashboardLayout.jsx";
 import PlaceFields from "../components/PlaceFields.jsx";
 import { api } from "../api.js";
 import { useNotify } from "../notify.jsx";
@@ -233,10 +233,10 @@ function Home() {
           ["Demandes à valider", String(waiting), "notifications"],
           ["Lots enregistrés", String(stocks.length), "dataset"],
         ].map(([label, value, icon]) => (
-          <article key={label} className="rounded-[22px] bg-white p-5 shadow-[0_10px_30px_-18px_rgba(0,59,41,0.45)]">
+          <article key={label} className="rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm p-5">
             <span className="material-symbols-outlined text-primary">{icon}</span>
             <p className="mt-3 font-label-sm uppercase tracking-[0.08em] text-[#8b95a1]">{label}</p>
-            <p className="mt-1 text-[28px] font-extrabold text-[#102033]">{value}</p>
+            <p className="mt-1 text-[28px] font-extrabold text-on-surface">{value}</p>
           </article>
         ))}
       </div>
@@ -468,7 +468,7 @@ function Publish() {
   return (
     <Frame>
       <PageHeader icon="add_box" title="Nouveau lot" subtitle="Prends ou importe une photo. L’analyse démarre toute seule, avant la publication." />
-      <form className="grid max-w-xl gap-3 rounded-[22px] bg-white p-5 shadow-[0_10px_30px_-18px_rgba(0,59,41,0.45)]" onSubmit={onSubmit}>
+      <form className="grid max-w-xl gap-3 rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm p-5" onSubmit={onSubmit}>
         {error && <p className="rounded-xl bg-error-container px-3 py-2 font-body-sm text-on-error-container">{error}</p>}
         {refusal && (
           <div role="alert" className="rounded-xl border border-[rgba(167,57,24,0.28)] bg-[rgba(167,57,24,0.12)] px-4 py-3 text-[#6b2414]">
@@ -708,8 +708,8 @@ function Products() {
         ))}
       </div>
       {editing && (
-        <form onSubmit={saveEdit} className="mb-4 grid gap-3 rounded-[22px] bg-white p-5 shadow-[0_10px_30px_-18px_rgba(0,59,41,0.45)]">
-          <p className="font-label-lg text-[#102033]">Modifier le lot</p>
+        <form onSubmit={saveEdit} className="mb-4 grid gap-3 rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm p-5">
+          <p className="font-label-lg text-on-surface">Modifier le lot</p>
           <label className="flex flex-col gap-1 font-label-md">Produit
             <input required value={editing.product} onChange={(event) => setEditing({ ...editing, product: event.target.value })} className="h-12 rounded-xl border border-[#e2e8f0] px-3" />
           </label>
@@ -746,7 +746,7 @@ function Products() {
       )}
       <CatalogCard title="Tous les lots" count={rows.length}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px] text-left">
+          <table className={`${catalogTable} xl:min-w-[860px]`}>
             <thead className={catalogHead}>
               <tr>
                 {["Article", "Catégorie", "Prix (FCFA)", "Délai", "Stock", "Statut", "Actions"].map((head) => (
@@ -754,34 +754,34 @@ function Products() {
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className={catalogBody}>
               {rows.map((row) => {
                 const state = stockState(row);
                 const gone = state === "Rupture" || state === "Retiré" || state === "Expiré";
                 return (
-                  <tr key={row.id} className="border-t border-[#eef2f4]">
-                    <td className={catalogCell}>
+                  <tr key={row.id} className={catalogRow}>
+                    <td className={`${catalogCell} ${catalogWide}`}>
                       <div className="flex items-center gap-3">
                         {row.image_url ? (
-                          <img src={row.image_url} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                          <img src={row.image_url} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
                         ) : (
-                          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-fixed text-primary">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-fixed text-primary">
                             <span className="material-symbols-outlined">nutrition</span>
                           </span>
                         )}
-                        <span>
-                          <span className="block font-label-md font-bold text-[#102033]">{row.product}</span>
+                        <span className="min-w-0">
+                          <span className="block font-label-md font-bold text-on-surface">{row.product}</span>
                           {row.channel === "transform" && <span className="block font-label-sm font-bold text-[#a73918]">Fil valorisation</span>}
                           <span className="block font-body-sm text-outline">{row.adresse_collecte}</span>
                         </span>
                       </div>
                     </td>
-                    <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{categoryLabel[row.category] || row.category} • {row.quarter}</td>
-                    <td className={`${catalogCell} font-label-md`}>{Number(row.published_price).toLocaleString("fr-FR")} / {row.unit}</td>
-                    <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{remainText(row)}</td>
-                    <td className={`${catalogCell} font-bold ${gone ? "text-secondary" : "text-primary"}`}>{gone && row.qty_available <= 0 ? "Rupture" : row.qty_available}</td>
-                    <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{state}</td>
-                    <td className={catalogCell}>
+                    <td data-label="Catégorie" className={`${catalogCell} ${catalogLabel} font-body-sm text-on-surface-variant`}>{categoryLabel[row.category] || row.category} • {row.quarter}</td>
+                    <td data-label="Prix (FCFA)" className={`${catalogCell} ${catalogLabel} font-label-md`}>{Number(row.published_price).toLocaleString("fr-FR")} / {row.unit}</td>
+                    <td data-label="Délai" className={`${catalogCell} ${catalogLabel} font-body-sm text-on-surface-variant`}>{remainText(row)}</td>
+                    <td data-label="Stock" className={`${catalogCell} ${catalogLabel} font-bold ${gone ? "text-secondary" : "text-primary"}`}>{gone && row.qty_available <= 0 ? "Rupture" : row.qty_available}</td>
+                    <td data-label="Statut" className={`${catalogCell} ${catalogLabel} font-body-sm text-on-surface-variant`}>{state}</td>
+                    <td data-label="Actions" className={`${catalogCell} ${catalogLabel}`}>
                       {row.status === "live" || row.status === "partial" ? (
                         <div className="flex gap-2">
                           <button type="button" onClick={() => openEdit(row)} className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-primary text-primary" aria-label={`Modifier ${row.product}`}>
@@ -865,7 +865,7 @@ function Requests() {
       {notice && <p className="mb-4 rounded-xl border border-[rgba(0,59,41,0.16)] bg-[rgba(0,59,41,0.08)] px-3 py-2 font-body-sm text-[#003b29]">{notice}</p>}
       <CatalogCard title="Toutes les demandes" count={rows.length}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left">
+          <table className={`${catalogTable} xl:min-w-[820px]`}>
             <thead className={catalogHead}>
               <tr>
                 {["Produit", "Quantité", "Retrait", "Statut", "Actions"].map((head) => (
@@ -873,13 +873,13 @@ function Requests() {
                 ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className={catalogBody}>
               {rows.map((row) => {
                 const pending = row.status === "pending_payment" || row.status === "pending_priority";
                 return (
-                  <tr key={row.id} className="border-t border-[#eef2f4]">
-                    <td className={catalogCell}>
-                      <div className="flex min-w-[190px] items-center gap-3">
+                  <tr key={row.id} className={catalogRow}>
+                    <td className={`${catalogCell} ${catalogWide}`}>
+                      <div className="flex items-center gap-3 xl:min-w-[190px]">
                         {row.image_url ? (
                           <img src={row.image_url} alt="" className="h-14 w-14 rounded-2xl object-cover ring-1 ring-[#e2e8f0]" />
                         ) : (
@@ -887,24 +887,24 @@ function Requests() {
                             <span className="material-symbols-outlined">nutrition</span>
                           </span>
                         )}
-                        <span className="font-label-md font-bold leading-tight text-[#102033]">{row.product}</span>
+                        <span className="font-label-md font-bold leading-tight text-on-surface">{row.product}</span>
                       </div>
                     </td>
-                    <td className={`${catalogCell} font-body-sm`}>{row.qty} {row.unit}</td>
-                    <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{row.adresse_collecte}</td>
-                    <td className={`${catalogCell} font-body-sm ${row.status === "accepted" ? "text-primary" : "text-on-surface-variant"}`}>
+                    <td data-label="Quantité" className={`${catalogCell} ${catalogLabel} font-body-sm`}>{row.qty} {row.unit}</td>
+                    <td data-label="Retrait" className={`${catalogCell} ${catalogLabel} ${catalogWide} order-1 font-body-sm text-on-surface-variant`}>{row.adresse_collecte}</td>
+                    <td data-label="Statut" className={`${catalogCell} ${catalogLabel} font-body-sm ${row.status === "accepted" ? "text-primary" : "text-on-surface-variant"}`}>
                       {row.status === "accepted" ? "Validée · point envoyé" : pending ? "En attente" : row.status}
                     </td>
-                    <td className={catalogCell}>
-                      <div className="flex justify-end gap-2">
+                    <td className={`${catalogCell} ${catalogWide} order-2`}>
+                      <div className="flex flex-wrap gap-2 xl:flex-nowrap xl:justify-end">
                         {row.buyer_phone && (
-                          <a href={`tel:+228${row.buyer_phone}`} className="inline-flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#003b29] px-4 font-label-md text-white shadow-[0_8px_16px_-10px_rgba(0,59,41,0.9)]">
+                          <a href={`tel:+228${row.buyer_phone}`} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#003b29] px-4 font-label-md text-white xl:flex-none shadow-[0_8px_16px_-10px_rgba(0,59,41,0.9)]">
                             <span className="material-symbols-outlined text-[18px]">call</span>
                             {String(row.buyer_phone).replace(/(\d{2})(?=\d)/g, "$1 ").trim()}
                           </a>
                         )}
                         {pending && (
-                          <button type="button" onClick={() => accept(row.id)} disabled={sending === row.id} className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 font-label-md text-on-primary shadow-sm disabled:opacity-60">
+                          <button type="button" onClick={() => accept(row.id)} disabled={sending === row.id} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-primary px-4 font-label-md text-on-primary shadow-sm disabled:opacity-60 xl:flex-none">
                             <span className="material-symbols-outlined text-[18px]">verified</span>
                             {sending === row.id ? "Envoi du point…" : "Valider"}
                           </button>

@@ -1,34 +1,34 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import Logo from "./Logo.jsx";
+import BasePageHeader from "./PageHeader.jsx";
 import { useAuth } from "../auth.jsx";
 import { NoteBell } from "../notify.jsx";
 
-export function PageHeader({ icon, title, subtitle, children }) {
+export function PageHeader(props) {
   return (
-    <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-[22px] font-extrabold tracking-tight text-[#102033] sm:text-[30px]">
-          <span className="min-w-0">{title}</span>
-          {icon && <span className="material-symbols-outlined shrink-0 text-[26px] text-primary">{icon}</span>}
-        </h1>
-        {subtitle && <p className="mt-1 max-w-xl font-body-md text-outline">{subtitle}</p>}
-      </div>
-      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+    <div className="mb-5">
+      <BasePageHeader {...props} />
     </div>
   );
 }
 
 export function CatalogCard({ title, count, children }) {
   return (
-    <section className="overflow-hidden rounded-[22px] bg-white shadow-[0_10px_30px_-18px_rgba(0,59,41,0.45)]">
-      <h2 className="px-4 py-4 text-[16px] font-bold text-[#102033] sm:px-5 sm:text-[18px]">{title} ({count})</h2>
+    <section className="overflow-hidden rounded-2xl border border-[#e2e8f0] bg-surface-container-lowest shadow-sm">
+      <h2 className="px-4 py-4 font-headline-sm text-headline-sm font-bold text-on-surface sm:px-5">{title} ({count})</h2>
       {children}
     </section>
   );
 }
 
-export const catalogHead = "bg-[#f6f8fa] text-[11px] font-bold uppercase tracking-[0.08em] text-[#8b95a1]";
-export const catalogCell = "px-4 py-3.5 align-middle";
+// Sous xl, chaque ligne devient une carte : les cellules portent data-label pour afficher leur intitulé.
+export const catalogTable = "block w-full text-left xl:table";
+export const catalogHead = "hidden bg-[#f6f8fa] text-[11px] font-bold uppercase tracking-[0.08em] text-[#8b95a1] xl:table-header-group";
+export const catalogBody = "block xl:table-row-group";
+export const catalogRow = "grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[#eef2f4] px-4 py-4 xl:table-row xl:p-0";
+export const catalogCell = "block min-w-0 break-words xl:table-cell xl:px-4 xl:py-3.5 xl:align-middle";
+export const catalogLabel = "before:mb-0.5 before:block before:text-[11px] before:font-bold before:uppercase before:tracking-[0.08em] before:text-[#8b95a1] before:content-[attr(data-label)] xl:before:content-none";
+export const catalogWide = "col-span-2";
 
 const pillLabel = {
   "Vue d’ensemble": "Accueil",
@@ -49,7 +49,7 @@ export default function DashboardLayout({ groups, children }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#e7eef2] text-on-surface">
+    <div className="flex h-screen overflow-hidden bg-background text-on-surface">
       <aside className="hidden h-full w-[268px] shrink-0 flex-col overflow-y-auto bg-primary text-on-primary md:flex">
         <div className="flex items-center gap-2 px-5 pb-1 pt-5">
           <span className="material-symbols-outlined text-[22px]">eco</span>

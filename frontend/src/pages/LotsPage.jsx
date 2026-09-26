@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Shell from "../components/Shell.jsx";
+import PageHeader from "../components/PageHeader.jsx";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { remainText } from "../ui.js";
@@ -49,16 +50,12 @@ export default function LotsPage() {
   return (
     <Shell>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="font-label-sm uppercase tracking-wide text-primary">Vendeur</p>
-            <h1 className="font-headline-lg text-headline-lg text-primary">Mes lots</h1>
-          </div>
+        <PageHeader eyebrow="Producteur" title="Mes lots">
           <Link to="/vendeur/publier" className="h-12 px-4 rounded-xl bg-primary text-on-primary font-label-lg inline-flex items-center gap-2">
             <span className="material-symbols-outlined">add</span>
             Nouveau lot
           </Link>
-        </div>
+        </PageHeader>
         <div className="grid gap-3">
           {lots.map((lot) => (
             <article key={lot.id} className="bg-surface-container-lowest rounded-2xl border border-[#e2e8f0] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -79,7 +76,7 @@ export default function LotsPage() {
           ))}
           {!loading && lots.length === 0 ? (
             <p className="rounded-2xl bg-surface-container-lowest border border-[#e2e8f0] p-4 font-body-md text-on-surface-variant">
-              {user && user.role === "seller" ? "Aucun lot publié pour le moment." : "Connectez-vous avec un compte vendeur pour voir vos lots."}
+              {user && user.role === "seller" ? "Aucun lot publié pour le moment." : "Connecte-toi avec un compte producteur pour voir tes lots."}
             </p>
           ) : null}
         </div>

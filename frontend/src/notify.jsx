@@ -19,6 +19,30 @@ function writeStore(rows) {
   sessionStorage.setItem(STORE, JSON.stringify(rows.slice(0, 30)));
 }
 
+const READ_STORE = "lm_notes_read";
+
+// Le titre fait partie de la clé : « 1 demande » puis « 2 demandes » redevient non lu.
+function readKey(item) {
+  return `${item.id}|${item.title}`;
+}
+
+function readReadStore() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(READ_STORE) || "[]");
+    return new Set(Array.isArray(rows) ? rows : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeReadStore(keys) {
+  try {
+    localStorage.setItem(READ_STORE, JSON.stringify([...keys].slice(-100)));
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
 const toneClass = {
   success: "bg-[#003b29] text-white",
   warning: "bg-[#a73918] text-white",
@@ -29,6 +53,7 @@ const toneClass = {
 export function NotifyProvider({ children }) {
   const { user, ready } = useAuth();
   const [inbox, setInbox] = useState(readStore);
+  const [readKeys, setReadKeys] = useState(readReadStore);
   const [toasts, setToasts] = useState([]);
   const seen = useRef(new Set(readStore().map((row) => row.id)));
 
@@ -141,8 +166,20 @@ export function NotifyProvider({ children }) {
     setToasts((current) => current.filter((row) => row.id !== id));
   }
 
+  function markAllRead() {
+    setReadKeys((current) => {
+      const missing = inbox.map(readKey).filter((key) => !current.has(key));
+      if (missing.length === 0) return current;
+      const next = new Set([...current, ...missing]);
+      writeReadStore(next);
+      return next;
+    });
+  }
+
+  const unread = inbox.filter((item) => !readKeys.has(readKey(item))).length;
+
   return (
-    <NotifyContext.Provider value={{ push, release, inbox }}>
+    <NotifyContext.Provider value={{ push, release, inbox, unread, markAllRead }}>
       {children}
       <div className="pointer-events-none fixed inset-x-0 top-20 z-[70] flex flex-col items-center gap-2 px-3">
         {toasts.map((item) => (
@@ -168,8 +205,7 @@ export function useNotify() {
 }
 
 export function NoteBell({ className }) {
-  const { inbox } = useNotify();
-  const count = inbox.length;
+  const { unread: count } = useNotify();
   return (
     <Link to="/alertes" className={`relative ${className || ""}`} aria-label="Notifications">
       <span className="material-symbols-outlined text-[22px]">notifications</span>
