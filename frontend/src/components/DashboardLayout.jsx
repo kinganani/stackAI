@@ -51,12 +51,8 @@ export default function DashboardLayout({ groups, children }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background text-on-surface">
       <aside className="hidden h-full w-[268px] shrink-0 flex-col overflow-y-auto bg-primary text-on-primary md:flex">
-        <div className="flex items-center gap-2 px-5 pb-1 pt-5">
-          <span className="material-symbols-outlined text-[22px]">eco</span>
-          <span className="text-[15px] font-extrabold tracking-[0.16em]">LOCALMATCH</span>
-        </div>
-        <NavLink to="/" className="mx-5 mb-6 mt-3 flex items-center justify-center rounded-[28px] bg-white px-5 py-6" aria-label="Page d’accueil LocalMatch" end>
-          <img src="/logo.png" alt="LocalMatch" className="sidebar-logo-mark" />
+        <NavLink to="/" className="mx-4 mb-4 mt-4 inline-flex items-center self-start" aria-label="Page d’accueil LocalMatch" end>
+          <Logo />
         </NavLink>
         <nav className="flex-1 px-4 pb-6">
           {groups.map((group) => (

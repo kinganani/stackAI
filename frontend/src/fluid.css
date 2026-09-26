@@ -41,10 +41,17 @@ svg.h-8 {
   line-height: 0;
 }
 
+.brand-orbit:not(.brand-orbit-lg) {
+  background: #ffffff;
+  border-radius: 999px;
+  padding: 0.35rem 0.4rem;
+  box-shadow: 0 2px 10px rgba(0, 59, 41, 0.18);
+}
+
 .brand-orbit::before {
   content: "";
   position: absolute;
-  inset: -6px;
+  inset: -5px;
   border: 2.5px solid #1e523f;
   border-radius: 46% 54% 42% 58% / 52% 40% 60% 48%;
   animation: onduler 3.2s ease-in-out infinite, gravite 9s linear infinite;
@@ -54,11 +61,15 @@ svg.h-8 {
 .brand-orbit::after {
   content: "";
   position: absolute;
-  inset: -6px;
+  inset: -5px;
   border-radius: 50%;
   background: radial-gradient(circle at 50% 0, #d95d39 0 4px, transparent 4.5px);
   animation: gravite 4.5s linear infinite;
   pointer-events: none;
+}
+
+aside.bg-primary .brand-orbit::before {
+  border-color: #9cd2b9;
 }
 
 .brand-orbit-lg::before {
@@ -71,23 +82,14 @@ svg.h-8 {
   background: radial-gradient(circle at 50% 0, #d95d39 0 6px, transparent 6.5px);
 }
 
-.sidebar-logo-mark {
-  display: block;
-  height: 8.25rem;
-  width: auto;
-  max-width: 100%;
-  object-fit: contain;
-  object-position: center;
-}
-
 .brand-mark,
 .brand-logo {
   display: block;
   position: relative;
   z-index: 1;
-  height: 3.35rem;
+  height: 2.85rem;
   width: auto;
-  max-width: 5.4rem;
+  max-width: 4.4rem;
   object-fit: contain;
   object-position: center;
   flex-shrink: 0;
