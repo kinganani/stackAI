@@ -27,8 +27,9 @@ export function hoursLeftLabel(h) {
   if (!Number.isFinite(n)) return "—";
   if (n <= 0) return "expiré";
   if (n >= 24) {
-    const days = Math.floor(n / 24);
-    const rest = Math.round(n - days * 24);
+    const whole = Math.round(n);
+    const days = Math.floor(whole / 24);
+    const rest = whole - days * 24;
     if (rest >= 1) return `${days} j ${rest} h restantes`;
     return `${days} j restantes`;
   }

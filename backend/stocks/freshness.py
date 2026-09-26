@@ -40,10 +40,9 @@ def format_span(hours):
     if hours <= 0:
         return "0 h"
     if hours >= 24:
-        days = int(hours // 24)
-        rest = hours - days * 24
-        if rest >= 0.5:
-            return f"{days} j {int(round(rest))} h"
+        days, rest = divmod(int(round(hours)), 24)
+        if rest:
+            return f"{days} j {rest} h"
         return f"{days} j"
     if hours >= 1:
         whole = int(hours)

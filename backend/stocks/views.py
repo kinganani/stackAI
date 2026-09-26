@@ -86,19 +86,24 @@ def stock_payload(stock, extra=None, analysis=None, include_plan=True):
     data["channel"] = state["channel"]
     data["weather"] = state["weather"]
     data["published_price"] = state["published_price"]
-    data.update(_promo_fields(stock, state["published_price"]))
+    data.update(_promo_fields(stock, state))
     return data
 
 
-def _promo_fields(stock, published):
-    from_price = stock.promo_from_price
-    cut = 0
-    if from_price and published and from_price > published:
-        cut = max(1, int(round((1 - published / from_price) * 100)))
+def _promo_fields(stock, state):
+    # promo_from_price est le prix frais d'avant la promo : le prix barré suit le même palier horaire
+    # que le prix affiché, sinon un changement de fenêtre peut le faire passer sous le prix actuel.
+    published = state["published_price"] or 0
+    reference = 0
+    if stock.promo_applied_at and stock.promo_from_price:
+        reference = stepped_price(stock.promo_from_price, state["hours_left"], state["hours_window"])
+        if state["channel"] == "transform":
+            reference = max(1, int(round(reference * 0.70)))
+    active = reference > published > 0
     return {
-        "promo": bool(stock.promo_applied_at),
-        "promo_from_price": int(from_price) if from_price else None,
-        "promo_cut": cut,
+        "promo": active,
+        "promo_from_price": reference if active else None,
+        "promo_cut": max(1, int(round((1 - published / reference) * 100))) if active else 0,
     }
 
 
@@ -379,7 +384,6 @@ class UpdateStockView(APIView):
             sync_lot(stock)
             if stock.status not in ("live", "partial"):
                 return Response({"detail": "Ce lot ne peut plus être modifié."}, status=400)
-            before_price = stock.published_price
             before_market = stock.market_price
             new_initial = stock.qty_initial + (qty - stock.qty_available)
             if new_initial < qty:
@@ -402,7 +406,7 @@ class UpdateStockView(APIView):
             if apply_dump or market < before_market:
                 stock.promo_applied_at = timezone.now()
                 if stock.promo_from_price is None:
-                    stock.promo_from_price = before_price
+                    stock.promo_from_price = before_market
             elif stock.promo_applied_at and market > before_market:
                 stock.promo_applied_at = None
                 stock.promo_from_price = None
@@ -431,7 +435,6 @@ class ApplyPromoView(APIView):
             sync_lot(stock, analysis=analysis)
             if stock.status not in ("live", "partial"):
                 return Response({"detail": "Ce lot ne peut plus être modifié."}, status=400)
-            before_pub = int(stock.published_price or 0)
             before_market = int(stock.market_price or 0)
             plan = _conserve(stock, analysis=analysis)
             target = int(plan.get("dump_market_price") or before_market)
@@ -439,7 +442,7 @@ class ApplyPromoView(APIView):
                 target = max(1, int(round(before_market * 0.9)))
             stock.market_price = target
             if stock.promo_from_price is None:
-                stock.promo_from_price = before_pub or before_market
+                stock.promo_from_price = before_market
             stock.promo_applied_at = timezone.now()
             stock.save(update_fields=["market_price", "promo_applied_at", "promo_from_price"])
         analysis = AiAnalysis.objects.filter(stock=stock).first()
@@ -514,7 +517,7 @@ class PublicCatalogView(APIView):
                 "freshness_now": state["freshness_now"],
                 "channel": state["channel"],
                 "weather": state["weather"],
-                **_promo_fields(stock, state["published_price"]),
+                **_promo_fields(stock, state),
             })
         visible.sort(key=lambda row: (0 if row.get("promo") else 1, row["hours_left"]))
         return Response(visible)
