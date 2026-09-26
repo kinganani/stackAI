@@ -6,4 +6,4 @@ dependencies = [
 ]
 
 [tool.vercel]
-entrypoint = "wsgi:application"
+entrypoint = "backend.config.wsgi:application"

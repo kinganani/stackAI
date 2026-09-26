@@ -41,7 +41,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-WSGI_APPLICATION = "config.wsgi.application"
+# Vercel loads this as a file under /var/task/. Django lives in backend/.
+WSGI_APPLICATION = (
+    "backend.config.wsgi.application" if os.getenv("VERCEL") else "config.wsgi.application"
+)
 AUTH_USER_MODEL = "accounts.Profile"
 
 TEMPLATES = [{
