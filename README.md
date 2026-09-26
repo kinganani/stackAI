@@ -60,7 +60,7 @@ Ne te fie pas à un log `Commit: a65364e` + `pattern "wsgi.py"` : c’est l’an
 | `VAPID_PUBLIC_KEY` | Push PWA (déjà dans `backend/.env` local) |
 | `VAPID_PRIVATE_KEY` | Même paire, une ligne, `\n` pour les retours PEM |
 
-Ne copie **pas** `DEBUG=True` depuis le `.env` local. Après avoir ajouté `DATABASE_URL`, redéploie (Redeploy) pour que Django lise la variable.
+Le site se déploie même si `DATABASE_URL` n’est pas encore collé (le build Vercel importe Django sans secrets). **Login / marché / API** ne marchent qu’après `DATABASE_URL` en Production + Preview, puis un nouveau deploy.
 
 Ne mets **pas** `VITE_API_URL` : le site appelle `/api` sur le même hôte.
 

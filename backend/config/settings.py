@@ -33,6 +33,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    "config.db_guard.RequireDatabaseUrlMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -59,8 +60,9 @@ DATABASE_URL = (
     os.getenv("DATABASE_URL")
     or os.getenv("POSTGRES_URL")
     or os.getenv("POSTGRES_PRISMA_URL")
+    or os.getenv("POSTGRES_URL_NON_POOLING")
     or ""
-).strip()
+).strip().strip('"').strip("'")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_PUBLISHABLE_KEY = os.getenv("SUPABASE_PUBLISHABLE_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
@@ -70,12 +72,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 
 
-if os.getenv("VERCEL") and not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL manquant sur Vercel. Colle l’URI Supabase (port 5432, sslmode=require) "
-        "dans Project Settings → Environment Variables."
-    )
-
 if DATABASE_URL and os.getenv("DJANGO_USE_SQLITE") != "1":
     DATABASES = {
         "default": dj_database_url.parse(
@@ -84,8 +80,9 @@ if DATABASE_URL and os.getenv("DJANGO_USE_SQLITE") != "1":
             ssl_require=os.getenv("DATABASE_SSL", "true").lower() == "true",
         )
     }
-elif os.getenv("VERCEL"):
-    raise RuntimeError("SQLite n’est pas utilisable sur Vercel. Configure DATABASE_URL.")
+elif ON_VERCEL:
+    # Import settings during `vercel build` has no secrets. Real requests need DATABASE_URL.
+    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
 
@@ -98,6 +95,7 @@ TIME_ZONE = "Africa/Lome"
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [
