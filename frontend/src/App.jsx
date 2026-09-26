@@ -14,6 +14,7 @@ import ProfilPage from "./pages/ProfilPage.jsx";
 import SellerDashboard from "./pages/SellerDashboard.jsx";
 import BuyerDashboard from "./pages/BuyerDashboard.jsx";
 import InstallPrompt from "./components/InstallPrompt.jsx";
+import SiteFooter from "./components/SiteFooter.jsx";
 
 const leftTabs = [
   { to: "/marche", icon: "storefront", label: "Marché" },
@@ -23,13 +24,17 @@ const rightTabs = [
   { to: "/rdv", icon: "pin_drop", label: "Collecte" },
   { to: "/impact", icon: "monitoring", label: "Impact" },
 ];
-const fab = { to: "/scan", icon: "qr_code_scanner", label: "Scan" };
-
 function MobileNav() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const { user } = useAuth();
   if (pathname === "/connexion" || pathname === "/inscription" || pathname.startsWith("/vendeur") || pathname.startsWith("/client") || pathname.startsWith("/acheteur")) return null;
+  const seller = user?.role === "seller";
+  const fab = seller
+    ? { to: "/scan", icon: "photo_camera", label: "Publier" }
+    : { to: "/marche?proche=1", icon: "search", label: "Chercher" };
   const left = leftTabs;
   const right = rightTabs;
+  const fabActive = seller ? pathname === "/scan" : pathname === "/marche" && search.includes("proche=1");
   return (
     <nav
       className="lg:hidden fixed inset-x-0 bottom-0 z-50 bg-background px-3 pt-8"
@@ -38,10 +43,10 @@ function MobileNav() {
     >
       <div className="relative mx-auto flex h-[68px] max-w-md items-end justify-between rounded-full bg-white px-1 pb-1.5 shadow-[0_8px_24px_rgba(30,82,63,0.12)]">
         {left.map((tab) => (
-          <NavItem key={tab.to} tab={tab} active={pathname === tab.to} />
+          <NavItem key={tab.to} tab={tab} active={pathname === tab.to && !fabActive} />
         ))}
         <a href={fab.to} className="absolute left-1/2 top-0 flex w-14 -translate-x-1/2 -translate-y-[55%] flex-col items-center" aria-label={fab.label}>
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-container text-on-primary shadow-[0_8px_16px_rgba(30,82,63,0.28)] ring-4 ring-background">
+          <span className={`flex h-14 w-14 items-center justify-center rounded-full text-on-primary shadow-[0_8px_16px_rgba(30,82,63,0.28)] ring-4 ring-background ${fabActive ? "bg-primary" : "bg-primary-container"}`}>
             <span className="material-symbols-outlined text-[26px]">{fab.icon}</span>
           </span>
         </a>
@@ -82,7 +87,8 @@ function RequireAuth({ role, children }) {
 
 export default function App() {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
+      <div className="flex-1">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/connexion" element={<LoginPage />} />
@@ -99,8 +105,10 @@ export default function App() {
         <Route path="/client/*" element={<RequireAuth role="buyer"><BuyerDashboard /></RequireAuth>} />
         <Route path="/acheteur/*" element={<LegacyClientPath />} />
       </Routes>
+      </div>
+      <SiteFooter />
       <InstallPrompt />
       <MobileNav />
-    </>
+    </div>
   );
 }

@@ -498,6 +498,8 @@ class PublicCatalogView(APIView):
                 "qty_available": stock.qty_available,
                 "unit": stock.unit,
                 "quarter": stock.quarter,
+                "lat": stock.lat,
+                "lng": stock.lng,
                 "hours_left": state["hours_left"],
                 "hours_ref": state["hours_window"],
                 "remaining_label": state["remaining_label"],

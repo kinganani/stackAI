@@ -4,7 +4,6 @@ import AccountActions from "./AccountActions.jsx";
 
 const links = [
   { to: "/marche", label: "Marché" },
-  { to: "/scan", label: "Déclarer" },
   { to: "/reservation", label: "Réserver" },
   { to: "/rdv", label: "Collecte" },
   { to: "/impact", label: "Impact" },
@@ -37,13 +36,6 @@ export default function Shell({ children }) {
         </div>
       </header>
       <main className="flex-1 pt-16 pb-24 lg:pb-8">{children}</main>
-      <footer className="hidden md:block bg-surface-container-low">
-        <div className="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-on-surface-variant">
-          <span className="font-label-md text-primary font-bold">LocalMatch • Lomé</span>
-          <span className="font-body-sm text-body-sm">La denrée part tant qu’elle est encore dans sa fenêtre de vie.</span>
-          <span className="font-body-sm text-body-sm">© 2026 LocalMatch</span>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -7,7 +7,6 @@ import { useAuth } from "../auth.jsx";
 
 const links = [
   { to: "/marche", label: "Marché" },
-  { to: "/scan", label: "Déclarer" },
   { to: "/reservation", label: "Réserver" },
   { to: "/rdv", label: "Collecte" },
   { to: "/impact", label: "Impact" },
@@ -38,7 +37,7 @@ export default function HomePage() {
   const space = user?.role === "seller" ? "/vendeur" : user ? "/client" : "";
   const cards = [
     ["/marche", "storefront", "Marché", lots.length ? `${lots.length} lot${lots.length > 1 ? "s" : ""} en ligne` : "Lots proches"],
-    [user?.role === "seller" ? "/vendeur/publier" : user ? "/scan" : "/inscription?role=seller", "photo_camera", "Publier", "Photo du lot"],
+    [user?.role === "seller" ? "/vendeur/publier" : "/marche?proche=1", user?.role === "seller" ? "photo_camera" : "search", user?.role === "seller" ? "Publier" : "Chercher", user?.role === "seller" ? "Photo du lot" : "Lots près de nous"],
     [user?.role === "buyer" ? "/client" : user?.role === "seller" ? "/vendeur" : "/connexion?suite=/client", "near_me", "Proximité", "Du plus près"],
     [user?.role === "seller" ? "/vendeur/demandes" : user ? "/rdv" : "/connexion?suite=/rdv", "pin_drop", "Collecte", "Après validation"],
   ];
