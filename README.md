@@ -8,6 +8,8 @@ Vente d’urgence de stocks périssables — ESIG Tech Arena. Le navigateur parl
 2. Ouvrir **SQL Editor** et exécuter, dans l’ordre :
    - `backend/sql/001_schema.sql`
    - `backend/sql/003_phone.sql` si la table existait déjà sans téléphone
+   - `backend/sql/006_promo.sql`
+   - `backend/sql/007_push.sql`
 3. **Project Settings → Database → Connection string → URI**, mode **Session** (port **5432**), hôte du pooler `aws-1-….pooler.supabase.com`. L’utilisateur est `postgres.<ref-projet>`.
 4. Copier `backend/.env.example` vers `backend/.env` et coller l’URI dans `DATABASE_URL`. Elle doit finir par `?sslmode=require`.
 
@@ -36,23 +38,24 @@ npm run dev
 
 Ouvrir http://localhost:5173/connexion
 
-## 4. Déploiement Vercel (interface)
+## 4. Déploiement Vercel (toute l’app)
 
-Vercel héberge le frontend Vite. Django reste sur un serveur (Railway, Render, Fly, VPS) avec `backend/.env`.
+Un seul projet Vercel sert l’interface **et** l’API (`/api/...`) sur le même domaine. Root Directory = racine du dépôt (pas `frontend`).
 
-1. Sur [vercel.com](https://vercel.com) : **Import** du dépôt `kinganani/stackAI`.
-2. **Root Directory** : `frontend` (ou laisse la racine : `vercel.json` à la racine construit `frontend/dist`).
-3. Variable d’environnement Vercel :
-   - `VITE_API_URL` = URL publique de l’API Django, sans slash final, ex. `https://api.ton-domaine.com`
-4. Dans `backend/.env` du serveur API, ajoute l’URL Vercel :
-   - `CORS_ALLOWED_ORIGINS=https://ton-app.vercel.app`
-   - `CSRF_TRUSTED_ORIGINS=https://ton-app.vercel.app`
-   - `ALLOWED_HOSTS=ton-hôte-api`
-   - `DEBUG=False`
-   - `REFRESH_COOKIE_SECURE=true`
-   - `REFRESH_COOKIE_SAMESITE=None`
-5. SQL push : exécuter `backend/sql/007_push.sql` sur Supabase.
+1. Import [kinganani/stackAI](https://github.com/kinganani/stackAI).
+2. Colle uniquement ces variables (Settings → Environment Variables), Production + Preview :
 
-Le fichier `backend/.env` ne se pousse pas sur Git. Copie `backend/.env.example` puis colle tes clés.
+| Variable | Rôle |
+| --- | --- |
+| `SECRET_KEY` | Clé Django (longue et unique) |
+| `DATABASE_URL` | URI Supabase (port 5432, `sslmode=require`) |
+| `GEMINI_API_KEY` | Analyse photo |
+| `CLOUDINARY_URL` | `cloudinary://KEY:SECRET@CLOUD` |
+| `VAPID_PUBLIC_KEY` | Push PWA (déjà dans `backend/.env` local) |
+| `VAPID_PRIVATE_KEY` | Même paire, une ligne, `\n` pour les retours PEM |
 
-Vague 1 branchée : inscription, connexion, profil, déclaration de stock, liste vendeur, offres dans le rayon (score), réservation avec adresse et lien Maps. La photo Gemini reste pour la vague 2.
+Optionnel : `GEMINI_MODEL`, `VAPID_SUBJECT`, `DEBUG=False`.
+
+Ne mets **pas** `VITE_API_URL` : le site appelle `/api` sur le même hôte.
+
+3. Deploy. Les hôtes `*.vercel.app` et les cookies HTTPS sont réglés tout seuls.

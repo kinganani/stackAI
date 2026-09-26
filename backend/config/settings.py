@@ -9,8 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
-DEBUG = os.getenv("DEBUG", "True") == "True"
-DEMO_MODE = os.getenv("DEMO_MODE", "True") == "True"
+DEBUG = os.getenv("DEBUG", "False" if os.getenv("VERCEL") else "True") == "True"
+DEMO_MODE = os.getenv("DEMO_MODE", "False" if os.getenv("VERCEL") else "True") == "True"
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
@@ -66,7 +66,11 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 8 * 1024 * 1024
 
 if DATABASE_URL and os.getenv("DJANGO_USE_SQLITE") != "1":
     DATABASES = {
-        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True)
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=0,
+            ssl_require=os.getenv("DATABASE_SSL", "true").lower() == "true",
+        )
     }
 else:
     DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
@@ -84,15 +88,48 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
-    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173").split(",")
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
     if origin.strip()
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = [r"^https://.*\.vercel\.app$"]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv("CSRF_TRUSTED_ORIGINS", ",".join(CORS_ALLOWED_ORIGINS)).split(",")
     if origin.strip()
 ]
+
+
+def _vercel_hosts():
+    hosts = [".vercel.app"]
+    for raw in (
+        os.getenv("VERCEL_URL"),
+        os.getenv("VERCEL_PROJECT_PRODUCTION_URL"),
+        os.getenv("VERCEL_BRANCH_URL"),
+    ):
+        if not raw:
+            continue
+        host = raw.replace("https://", "").replace("http://", "").split("/")[0].strip()
+        if host:
+            hosts.append(host)
+    return hosts
+
+
+def _vercel_origins():
+    origins = []
+    for host in _vercel_hosts():
+        if host.startswith("."):
+            continue
+        origins.append(f"https://{host}")
+    return origins
+
+
+if os.getenv("VERCEL"):
+    ALLOWED_HOSTS = list(dict.fromkeys([*ALLOWED_HOSTS, *_vercel_hosts(), "localhost", "127.0.0.1"]))
+    CORS_ALLOWED_ORIGINS = list(dict.fromkeys([*CORS_ALLOWED_ORIGINS, *_vercel_origins()]))
+    CSRF_TRUSTED_ORIGINS = list(dict.fromkeys([*CSRF_TRUSTED_ORIGINS, *_vercel_origins()]))
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -116,3 +153,14 @@ REFRESH_COOKIE_SAMESITE = os.getenv("REFRESH_COOKIE_SAMESITE", "Lax" if DEBUG el
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").replace("\\n", "\n")
 VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:localmatch@localhost")
+
+if os.getenv("VERCEL"):
+    if not os.getenv("REFRESH_COOKIE_SECURE"):
+        REFRESH_COOKIE_SECURE = True
+    if not os.getenv("REFRESH_COOKIE_SAMESITE"):
+        REFRESH_COOKIE_SAMESITE = "Lax"
+    if not os.getenv("VAPID_SUBJECT"):
+        prod = os.getenv("VERCEL_PROJECT_PRODUCTION_URL") or os.getenv("VERCEL_URL") or ""
+        host = prod.replace("https://", "").replace("http://", "").split("/")[0]
+        if host:
+            VAPID_SUBJECT = f"mailto:localmatch@{host}"

@@ -14,4 +14,4 @@ ml/submitted/
 ml/real/
 backend/marketplace/ml/submitted/
 backend/marketplace/ml/real/
-staticfiles/
+backend/spa/
