@@ -21,8 +21,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     radius_km numeric(5, 2) NOT NULL DEFAULT 5 CHECK (radius_km > 0 AND radius_km <= 50),
     buyer_type varchar(40) NULL,
     momo_alias varchar(80) NULL,
-    date_joined timestamptz NOT NULL DEFAULT now(),
-    CHECK (role <> 'buyer' OR buyer_type IS NOT NULL)
+    date_joined timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS stocks (

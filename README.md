@@ -10,6 +10,7 @@ Vente d’urgence de stocks périssables — ESIG Tech Arena. Le navigateur parl
    - `backend/sql/003_phone.sql` si la table existait déjà sans téléphone
    - `backend/sql/006_promo.sql`
    - `backend/sql/007_push.sql`
+   - `backend/sql/008_buyer_type_optional.sql` si la table existait déjà (sinon l’inscription client échoue)
 3. **Project Settings → Database → Connection string → URI**, mode **Session** (port **5432**), hôte du pooler `aws-1-….pooler.supabase.com`. L’utilisateur est `postgres.<ref-projet>`.
 4. Copier `backend/.env.example` vers `backend/.env` et coller l’URI dans `DATABASE_URL`. Elle doit finir par `?sslmode=require`.
 
