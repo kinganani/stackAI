@@ -10,7 +10,7 @@ def haversine_km(lat1, lng1, lat2, lng2):
     return 2 * radius * math.asin(math.sqrt(a))
 
 
-# Paliers sur la durée de référence de la catégorie.
+# Paliers sur la fenêtre estimée de CE lot (expires_at − photo).
 # Au-dessus de 75 % : prix du producteur. Puis 85 %, 70 %, 50 %.
 PRICE_STEPS = (
     (0.75, 1.00, "Encore large"),

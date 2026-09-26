@@ -1,5 +1,6 @@
 from accounts.quarters import HOURS_REF
 
+from .freshness import format_span
 from .matching import price_ratio, stepped_price
 
 KEEP = {
@@ -86,9 +87,17 @@ BUYERS = {
 
 
 def _level(hours, ref):
-    if ref <= 0:
+    if ref <= 0 or hours <= 0:
         return "critique"
     fraction = hours / ref
+    if hours >= 24:
+        if fraction < 0.25:
+            return "critique"
+        if fraction < 0.5:
+            return "urgent"
+        if fraction < 0.75:
+            return "surveiller"
+        return "ok"
     if hours <= 4 or fraction < 0.25:
         return "critique"
     if hours <= 8 or fraction < 0.5:
@@ -109,9 +118,12 @@ def _next_drop(hours, ref, market):
     ):
         if fraction > threshold:
             hours_at = round(ref * threshold, 1)
+            wait = round(max(0.0, hours - hours_at), 1)
             return {
-                "in_hours": round(max(0.0, hours - hours_at), 1),
+                "in_hours": wait,
+                "in_label": format_span(wait),
                 "at_hours": hours_at,
+                "at_label": format_span(hours_at),
                 "price": max(1, int(round(market * ratio))),
                 "ratio": ratio,
                 "label": label,
@@ -119,9 +131,12 @@ def _next_drop(hours, ref, market):
     return None
 
 
-def plan(hours_left, category, qty, market_price, spoilage=0, quality=None, unit="kg"):
-    ref = float(HOURS_REF.get(category, 48))
+def plan(hours_left, category, qty, market_price, spoilage=0, quality=None, unit="kg", window_hours=None, weather=None):
     hours = max(0.0, float(hours_left or 0))
+    if window_hours is not None:
+        ref = max(1.0, float(window_hours))
+    else:
+        ref = float(HOURS_REF.get(category, 48))
     market = max(0, int(market_price or 0))
     quantity = max(0, int(qty or 0))
     spoil = max(0.0, min(100.0, float(spoilage or 0)))
@@ -149,14 +164,24 @@ def plan(hours_left, category, qty, market_price, spoilage=0, quality=None, unit
     gestures = list(KEEP.get(category, KEEP["autre"]).get(level, KEEP["autre"]["ok"]))
     if quality is not None and quality < 65:
         gestures.append("La photo a déjà montré un lot fragile : accélère la vente plutôt que de stocker.")
+    temp = (weather or {}).get("temp_c")
+    humidity = (weather or {}).get("humidity")
+    if temp is not None and float(temp) >= 32:
+        gestures.append("Chaleur actuelle à Lomé : le décompte suit l’heure réelle, mais sors le lot de plein soleil.")
+    elif humidity is not None and float(humidity) >= 85:
+        gestures.append("Air très humide : aère le lot, le délai affiché reste calé sur l’heure de Lomé.")
+    mode = "décompte par jours de 24 h, heure de Lomé" if hours >= 24 else "décompte à l’heure, heure de Lomé"
     why = (
-        f"{hours:.0f} h restantes sur {ref:.0f} h de référence"
+        f"{format_span(hours)} restantes sur {format_span(ref)} estimées à la photo ({mode})"
         f"{f', altération {spoil:.0f} %' if spoil else ''}."
     )
     return {
         "level": level,
-        "hours_left": round(hours, 1),
-        "hours_ref": ref,
+        "hours_left": round(hours, 2),
+        "hours_ref": round(ref, 2),
+        "remaining_label": format_span(hours),
+        "window_label": format_span(ref),
+        "clock_mode": "day" if hours >= 24 else "hour",
         "keep": gestures,
         "why": why,
         "buyers": BUYERS[level],

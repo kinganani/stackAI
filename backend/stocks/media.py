@@ -110,7 +110,7 @@ def destroy_image(public_id):
         return
 
 
-PROMPT = """Tu examines une photo de denrée agricole destinée à un marché à Lomé.
+PROMPT = """Tu examines une photo de denrée agricole destinée à un marché à Lomé (fuseau Africa/Lome).
 Réponds uniquement avec un objet JSON, sans texte autour.
 Ne te base pas sur un seul coup d'œil. Croise ces critères, chacun noté de 0 à 100 (100 = bon pour la vente) :
 - couleur : teinte attendue pour ce produit, taches brunes ou noires
@@ -124,14 +124,16 @@ Tiens aussi compte du type de produit et de sa durée habituelle à température
 Règles :
 - is_produce est true seulement si la photo montre clairement un produit agricole alimentaire.
 - N'invente pas une date. printed_date_visible est true seulement si une date est lisible. Sinon false et printed_expiry null.
-- hours_left est le temps encore raisonnable avant que le produit ne soit plus bon à vendre, en heures. Ce n'est pas une mesure de laboratoire.
+- hours_left est la fenêtre de vente complète estimée à l'instant de la photo, en heures. Ce n'est pas une mesure de laboratoire.
+- Si le lot est encore sain, utilise la durée habituelle à Lomé : tomate 36, poisson 8, plantain/banane 48, autre 48. Ne raccourcis que si la photo montre un produit déjà avancé (mou, taché, trop mûr).
+- Ne choisis pas 24 h par défaut. 48 h = 2 jours de 24 h. Au-delà de 24 h, pense en jours de 24 h.
 - category est l'une de : tomate, poisson, banane, autre. banane couvre le plantain.
 - confidence est entre 0 et 1. Baisse-la si la photo est floue ou partielle.
 - quality_percent est la synthèse des critères, de 0 à 100. 100 = lot sain. En cas de doute, prends le critère le plus faible, pas la moyenne optimiste.
 - spoilage_percent est la part qui paraît pourrie, moisie ou avariée, de 0 à 100.
 - reason cite en français les critères qui tirent la note vers le bas.
 Format :
-{"is_produce":true,"product":"","category":"autre","confidence":0.5,"aspects":{"couleur":80,"moisissure":90,"fermete":70,"humidite":80,"chocs":85,"maturite":75,"part_vendable":80},"quality_percent":75,"spoilage_percent":20,"printed_date_visible":false,"printed_expiry":null,"visual_freshness":"moyenne","hours_left":24,"reason":""}
+{"is_produce":true,"product":"plantain","category":"banane","confidence":0.8,"aspects":{"couleur":88,"moisissure":95,"fermete":85,"humidite":90,"chocs":88,"maturite":80,"part_vendable":90},"quality_percent":85,"spoilage_percent":5,"printed_date_visible":false,"printed_expiry":null,"visual_freshness":"bonne","hours_left":48,"reason":""}
 """
 
 

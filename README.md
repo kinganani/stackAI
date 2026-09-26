@@ -36,4 +36,23 @@ npm run dev
 
 Ouvrir http://localhost:5173/connexion
 
+## 4. Déploiement Vercel (interface)
+
+Vercel héberge le frontend Vite. Django reste sur un serveur (Railway, Render, Fly, VPS) avec `backend/.env`.
+
+1. Sur [vercel.com](https://vercel.com) : **Import** du dépôt `kinganani/stackAI`.
+2. **Root Directory** : `frontend` (ou laisse la racine : `vercel.json` à la racine construit `frontend/dist`).
+3. Variable d’environnement Vercel :
+   - `VITE_API_URL` = URL publique de l’API Django, sans slash final, ex. `https://api.ton-domaine.com`
+4. Dans `backend/.env` du serveur API, ajoute l’URL Vercel :
+   - `CORS_ALLOWED_ORIGINS=https://ton-app.vercel.app`
+   - `CSRF_TRUSTED_ORIGINS=https://ton-app.vercel.app`
+   - `ALLOWED_HOSTS=ton-hôte-api`
+   - `DEBUG=False`
+   - `REFRESH_COOKIE_SECURE=true`
+   - `REFRESH_COOKIE_SAMESITE=None`
+5. SQL push : exécuter `backend/sql/007_push.sql` sur Supabase.
+
+Le fichier `backend/.env` ne se pousse pas sur Git. Copie `backend/.env.example` puis colle tes clés.
+
 Vague 1 branchée : inscription, connexion, profil, déclaration de stock, liste vendeur, offres dans le rayon (score), réservation avec adresse et lien Maps. La photo Gemini reste pour la vague 2.

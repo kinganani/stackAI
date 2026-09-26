@@ -94,7 +94,7 @@ export default function LotPage() {
             </span>
             <div className="absolute top-4 right-4 bg-surface-container-lowest/90 rounded-lg px-space-sm py-space-xs text-right">
               <div className="font-label-sm text-on-surface-variant uppercase">Temps restant</div>
-              <div className="font-label-md text-secondary font-bold">{hoursLeftLabel(lot.hours_left)}</div>
+              <div className="font-label-md text-secondary font-bold">{lot.remaining_label ? `${lot.remaining_label} restantes` : hoursLeftLabel(lot.hours_left)}</div>
             </div>
             <h1 className="absolute bottom-4 left-4 right-4 font-headline-lg text-on-primary">{lot.product_name}</h1>
           </div>

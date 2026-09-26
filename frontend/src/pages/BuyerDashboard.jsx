@@ -3,6 +3,7 @@ import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import DashboardLayout, { CatalogCard, PageHeader, catalogCell, catalogHead } from "../components/DashboardLayout.jsx";
 import { api } from "../api.js";
 import { useNotify } from "../notify.jsx";
+import { remainText } from "../ui.js";
 
 const BuyerContext = createContext(null);
 
@@ -40,10 +41,6 @@ function fcfa(value) {
 
 function km(value) {
   return `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
-}
-
-function hours(value) {
-  return `${Number(value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} h`;
 }
 
 function when(iso) {
@@ -247,7 +244,7 @@ function OfferTable({ title, rows, loading, query, onReserve, salvage }) {
                   <td className={`${catalogCell} font-body-sm`}>{km(offer.distance_km)}</td>
                   <td className={`${catalogCell} font-label-md`}>{Number(offer.published_price).toLocaleString("fr-FR")} / {offer.unit}</td>
                   <td className={`${catalogCell} font-bold ${rupture ? "text-secondary" : "text-primary"}`}>{rupture ? "Rupture" : offer.qty_available}</td>
-                  <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{hours(offer.hours_left)} restantes</td>
+                  <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{remainText(offer)} restantes</td>
                   <td className={catalogCell}>
                     <div className="flex items-center justify-end gap-2">
                       <input

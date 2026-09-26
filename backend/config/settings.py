@@ -11,7 +11,11 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-change-me")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 DEMO_MODE = os.getenv("DEMO_MODE", "True") == "True"
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if host.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.auth",
@@ -84,6 +88,11 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", ",".join(CORS_ALLOWED_ORIGINS)).split(",")
+    if origin.strip()
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -101,5 +110,9 @@ SIMPLE_JWT = {
 }
 
 REFRESH_COOKIE = "lm_refresh"
-REFRESH_COOKIE_SECURE = not DEBUG
-REFRESH_COOKIE_SAMESITE = "Lax"
+REFRESH_COOKIE_SECURE = os.getenv("REFRESH_COOKIE_SECURE", "false" if DEBUG else "true").lower() == "true"
+REFRESH_COOKIE_SAMESITE = os.getenv("REFRESH_COOKIE_SAMESITE", "Lax" if DEBUG else "None")
+
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "").replace("\\n", "\n")
+VAPID_SUBJECT = os.getenv("VAPID_SUBJECT", "mailto:localmatch@localhost")

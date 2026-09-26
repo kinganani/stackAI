@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Shell from "../components/Shell.jsx";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
+import { remainText } from "../ui.js";
 
 const statusLabel = {
   live: "En vente",
@@ -66,7 +67,7 @@ export default function LotsPage() {
                   <h2 className="font-headline-sm text-headline-sm font-bold">{lot.product}</h2>
                   <span className={`px-2 py-0.5 rounded-full font-label-sm ${lot.status === "partial" ? "bg-secondary-fixed text-on-secondary-fixed" : lot.status === "expired" || lot.status === "cancelled" ? "bg-surface-container-high text-outline" : "bg-primary-fixed text-on-primary-fixed"}`}>{statusLabel[lot.status] || lot.status}</span>
                 </div>
-                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{lot.qty_available} {lot.unit} • {lot.quarter} • {Number(lot.hours_left || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} h</p>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{lot.qty_available} {lot.unit} • {lot.quarter} • {remainText(lot)}</p>
               </div>
               <div className="flex items-center gap-4">
                 <span className="font-price-display text-price-display text-primary font-extrabold">{Number(lot.published_price || 0).toLocaleString("fr-FR")} <span className="font-price-currency">FCFA</span></span>

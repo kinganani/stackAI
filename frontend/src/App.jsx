@@ -13,6 +13,7 @@ import AlertesPage from "./pages/AlertesPage.jsx";
 import ProfilPage from "./pages/ProfilPage.jsx";
 import SellerDashboard from "./pages/SellerDashboard.jsx";
 import BuyerDashboard from "./pages/BuyerDashboard.jsx";
+import InstallPrompt from "./components/InstallPrompt.jsx";
 
 const leftTabs = [
   { to: "/marche", icon: "storefront", label: "Marché" },
@@ -98,6 +99,7 @@ export default function App() {
         <Route path="/client/*" element={<RequireAuth role="buyer"><BuyerDashboard /></RequireAuth>} />
         <Route path="/acheteur/*" element={<LegacyClientPath />} />
       </Routes>
+      <InstallPrompt />
       <MobileNav />
     </>
   );

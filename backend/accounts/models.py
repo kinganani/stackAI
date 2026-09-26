@@ -39,3 +39,17 @@ class Profile(AbstractBaseUser):
 
     def __str__(self):
         return self.phone
+
+
+class PushSubscription(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name="push_subscriptions")
+    endpoint = models.TextField()
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=240, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "push_subscriptions"
+        managed = False

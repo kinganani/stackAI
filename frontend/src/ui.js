@@ -25,10 +25,24 @@ export function lotImage(lot) {
 export function hoursLeftLabel(h) {
   const n = Number(h);
   if (!Number.isFinite(n)) return "—";
+  if (n <= 0) return "expiré";
+  if (n >= 24) {
+    const days = Math.floor(n / 24);
+    const rest = Math.round(n - days * 24);
+    if (rest >= 1) return `${days} j ${rest} h restantes`;
+    return `${days} j restantes`;
+  }
   if (n < 1) return `${Math.max(1, Math.round(n * 60))} min restantes`;
   const hr = Math.floor(n);
   const min = Math.round((n - hr) * 60);
   return min ? `${hr} h ${min} min restantes` : `${hr} h restantes`;
+}
+
+export function remainText(lot) {
+  if (!lot) return "—";
+  if (lot.remaining_label) return lot.remaining_label;
+  if (lot.hours_label) return lot.hours_label;
+  return hoursLeftLabel(lot.hours_left).replace(/ restantes$/, "");
 }
 
 export function freshnessTone(score) {

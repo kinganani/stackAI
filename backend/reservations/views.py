@@ -12,6 +12,7 @@ from stocks.models import Stock
 from .guide import guide_route
 from .models import Reservation
 from .services import release_expired, reservation_payload
+from accounts.push import notify_user
 
 
 class ReservationCreateView(APIView):
@@ -48,6 +49,12 @@ class ReservationCreateView(APIView):
                 )
         except Stock.DoesNotExist:
             return Response({"detail": "Offre introuvable."}, status=404)
+        notify_user(
+            reservation.stock.seller,
+            "Nouvelle réservation",
+            f"{qty} {stock.unit} de {stock.product}",
+            "/vendeur/demandes",
+        )
         return Response(reservation_payload(reservation, request.user), status=201)
 
 
@@ -107,6 +114,12 @@ class ReservationAcceptView(APIView):
             reservation.pickup_lng = lng
             reservation.pickup_address = stock.adresse_collecte
             reservation.save(update_fields=["status", "pickup_lat", "pickup_lng", "pickup_address"])
+        notify_user(
+            reservation.buyer,
+            "Collecte validée",
+            f"{reservation.stock.product} est prêt. Ouvre l’itinéraire.",
+            f"/rdv?id={reservation.id}",
+        )
         return Response(reservation_payload(reservation, request.user))
 
 

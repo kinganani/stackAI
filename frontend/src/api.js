@@ -1,3 +1,9 @@
+const API_ROOT = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+function apiUrl(path) {
+  return `${API_ROOT}${path}`;
+}
+
 let accessToken = "";
 
 async function request(path, options = {}) {
@@ -8,17 +14,17 @@ async function request(path, options = {}) {
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   let response;
   try {
-    response = await fetch(path, { ...options, headers, credentials: "include" });
+    response = await fetch(apiUrl(path), { ...options, headers, credentials: "include" });
   } catch {
     throw new Error("Le serveur est injoignable. Réessaie dans un instant.");
   }
-  if (response.status === 401 && accessToken && !path.startsWith("/api/auth/")) {
-    const refreshed = await fetch("/api/auth/refresh/", { method: "POST", credentials: "include" });
+  if (response.status === 401 && accessToken && !path.includes("/api/auth/")) {
+    const refreshed = await fetch(apiUrl("/api/auth/refresh/"), { method: "POST", credentials: "include" });
     if (refreshed.ok) {
       const data = await refreshed.json();
       accessToken = data.access;
       headers.Authorization = `Bearer ${accessToken}`;
-      response = await fetch(path, { ...options, headers, credentials: "include" });
+      response = await fetch(apiUrl(path), { ...options, headers, credentials: "include" });
     }
   }
   const data = await response.json().catch(() => ({}));
@@ -80,6 +86,7 @@ export const api = {
   analyzeLot: (body) => request("/api/stocks/analyze/", { method: "POST", body }),
   createStock: (body) => request("/api/stocks/", { method: "POST", body: JSON.stringify(body) }),
   updateStock: (id, body) => request(`/api/stocks/${id}/`, { method: "PATCH", body: JSON.stringify(body) }),
+  applyPromo: (id) => request(`/api/stocks/${id}/promo/`, { method: "POST" }),
   cancelStock: (id) => request(`/api/stocks/${id}/cancel/`, { method: "POST" }),
   catalog: () => request("/api/stocks/public/"),
   nearby: () => request("/api/stocks/nearby/"),
@@ -89,4 +96,7 @@ export const api = {
   reservation: (id) => request(`/api/reservations/${id}/`),
   guideRoute: (body) => request("/api/reservations/guide/", { method: "POST", body: JSON.stringify(body) }),
   voiceDeclare: (transcript) => request("/api/stocks/voice/", { method: "POST", body: JSON.stringify({ transcript }) }),
+  pushPublicKey: () => request("/api/push/vapid/"),
+  pushSubscribe: (body) => request("/api/push/subscribe/", { method: "POST", body: JSON.stringify(body) }),
+  pushUnsubscribe: (endpoint) => request("/api/push/subscribe/", { method: "DELETE", body: JSON.stringify({ endpoint }) }),
 };

@@ -4,6 +4,7 @@ import DashboardLayout, { CatalogCard, PageHeader, catalogCell, catalogHead } fr
 import PlaceFields from "../components/PlaceFields.jsx";
 import { api } from "../api.js";
 import { useNotify } from "../notify.jsx";
+import { remainText } from "../ui.js";
 
 function compressPhoto(file) {
   return new Promise((resolve) => {
@@ -131,9 +132,9 @@ function ConservePanel({ plan, product, image, channel, onDump, dumping }) {
           )}
         </div>
       </div>
-      {plan.apply && onDump && (
+      {onDump && (
         <button type="button" onClick={onDump} disabled={dumping} className="relative mt-4 inline-flex h-12 w-full items-center justify-center rounded-full bg-white px-4 font-label-lg font-extrabold text-[#a73918] disabled:opacity-60">
-          {dumping ? "Application…" : `Appliquer ${Number(plan.dump_price).toLocaleString("fr-FR")} FCFA en ligne`}
+          {dumping ? "Application…" : `Mettre en réduction spéciale · ${Number(plan.dump_price || plan.current_price || 0).toLocaleString("fr-FR")} FCFA`}
         </button>
       )}
     </article>
@@ -167,7 +168,7 @@ function Home() {
             tone: "warning",
             keep: true,
             title: `Vider ${row.product}`,
-            body: `${Number(row.hours_left || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} h restantes · sauvetage ${Number(row.conservation.dump_price).toLocaleString("fr-FR")} FCFA`,
+            body: `${remainText(row)} restantes · sauvetage ${Number(row.conservation.dump_price).toLocaleString("fr-FR")} FCFA`,
             href: "/vendeur",
           });
         });
@@ -182,24 +183,17 @@ function Home() {
   const watching = liveRows.filter((row) => row.conservation?.level === "surveiller" && !needsDump(row.conservation));
 
   async function applyDump(row) {
-    const plan = row.conservation;
-    if (!plan?.apply) return;
     setDumping(row.id);
     setError("");
     try {
-      const updated = await api.updateStock(row.id, {
-        product: row.product,
-        description: lotDescription(row),
-        quarter: row.quarter,
-        qty: row.qty_available,
-        market_price: plan.dump_market_price,
-        category: row.category,
-      });
+      const updated = await api.applyPromo(row.id);
       setStocks((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       notes.push({
         tone: "success",
-        title: "Prix de sauvetage appliqué",
-        body: `${updated.product} : ${Number(updated.published_price).toLocaleString("fr-FR")} FCFA en ligne.`,
+        keep: true,
+        title: "Réduction spéciale en ligne",
+        body: `${updated.product} : ${Number(updated.published_price).toLocaleString("fr-FR")} FCFA. Ouvre le catalogue promo.`,
+        href: "/marche?promo=1",
       });
     } catch (err) {
       setError(err.message);
@@ -528,7 +522,7 @@ function Publish() {
           <div className="rounded-xl border border-[rgba(0,59,41,0.16)] bg-[rgba(0,59,41,0.08)] px-3 py-3 font-body-sm text-[#003b29]">
             <p className="font-label-md font-bold">Produit acceptable · qualité {Math.round(Number(analysis.quality_percent) || 0)} %</p>
             <p className="mt-1">{analysis.disclaimer}</p>
-            <p className="mt-2">Conservation estimée : <strong>{analysis.hours_left} h</strong>. Altération estimée : {Math.round(Number(analysis.spoilage_percent) || 0)} %. Confiance : {Math.round(Number(analysis.confidence) * 100)} %.</p>
+            <p className="mt-2">Conservation estimée : <strong>{analysis.hours_label || remainText(analysis)}</strong>. Altération estimée : {Math.round(Number(analysis.spoilage_percent) || 0)} %. Confiance : {Math.round(Number(analysis.confidence) * 100)} %.</p>
             {Array.isArray(analysis.aspects) && analysis.aspects.length > 0 && (
               <ul className="mt-2 grid grid-cols-2 gap-1">
                 {analysis.aspects.map((item) => (
@@ -655,24 +649,17 @@ function Products() {
   }
 
   async function applyDump(row) {
-    const plan = row.conservation;
-    if (!plan?.apply) return;
     setDumping(row.id);
     setError("");
     try {
-      const updated = await api.updateStock(row.id, {
-        product: row.product,
-        description: lotDescription(row),
-        quarter: row.quarter,
-        qty: row.qty_available,
-        market_price: plan.dump_market_price,
-        category: row.category,
-      });
+      const updated = await api.applyPromo(row.id);
       setRows((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       notes.push({
         tone: "success",
-        title: "Prix de sauvetage appliqué",
-        body: `${updated.product} : ${Number(updated.published_price).toLocaleString("fr-FR")} FCFA en ligne.`,
+        keep: true,
+        title: "Réduction spéciale en ligne",
+        body: `${updated.product} : ${Number(updated.published_price).toLocaleString("fr-FR")} FCFA. Ouvre le catalogue promo.`,
+        href: "/marche?promo=1",
       });
     } catch (err) {
       setError(err.message);
@@ -791,7 +778,7 @@ function Products() {
                     </td>
                     <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{categoryLabel[row.category] || row.category} • {row.quarter}</td>
                     <td className={`${catalogCell} font-label-md`}>{Number(row.published_price).toLocaleString("fr-FR")} / {row.unit}</td>
-                    <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{Number(row.hours_left || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} h</td>
+                    <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{remainText(row)}</td>
                     <td className={`${catalogCell} font-bold ${gone ? "text-secondary" : "text-primary"}`}>{gone && row.qty_available <= 0 ? "Rupture" : row.qty_available}</td>
                     <td className={`${catalogCell} font-body-sm text-on-surface-variant`}>{state}</td>
                     <td className={catalogCell}>

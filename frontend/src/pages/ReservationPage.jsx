@@ -4,6 +4,7 @@ import Shell from "../components/Shell.jsx";
 import { api } from "../api.js";
 import { useAuth } from "../auth.jsx";
 import { useNotify } from "../notify.jsx";
+import { remainText } from "../ui.js";
 
 function money(value) {
   return `${Number(value || 0).toLocaleString("fr-FR")} FCFA`;
@@ -129,7 +130,7 @@ export default function ReservationPage() {
             <div className="flex flex-col gap-2">
               <h2 className="font-headline-sm font-bold text-on-surface">{lot.product}</h2>
               <p className="font-body-sm text-on-surface-variant">{lot.quarter} · {lot.adresse_collecte}</p>
-              <p className="font-body-sm text-on-surface-variant">{Number(lot.hours_left || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} h restantes · {available} {lot.unit} en vente</p>
+              <p className="font-body-sm text-on-surface-variant">{remainText(lot)} restantes · {available} {lot.unit} en vente</p>
               <p className="font-label-md text-primary">{money(unitPrice)} / {lot.unit}</p>
             </div>
             <div className="flex flex-col gap-3 sm:col-span-2">

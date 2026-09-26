@@ -14,15 +14,44 @@ from accounts.quarters import HOURS_MAX, HOURS_REF, QUARTERS
 from reservations.services import release_expired
 
 from .conservation import plan as conserve_plan
-from .freshness import climate_state, sync_lot
+from .freshness import climate_state, format_span, lome_now, remaining_hours, sync_lot, window_hours
 from .matching import haversine_km, price_bands, price_ratio, score_offer, stepped_price
 from .media import MediaError, destroy_image, estimate_produce, upload_image
 from .models import AiAnalysis, Stock
 from .voice import extract_voice
 
 
-def stock_payload(stock, extra=None, analysis=None, include_plan=True):
+def _conserve(stock, analysis=None, weather=None):
     found = (analysis.payload if analysis is not None else None) or {}
+    return conserve_plan(
+        float(remaining_hours(stock)),
+        stock.category,
+        stock.qty_available,
+        stock.market_price,
+        spoilage=found.get("spoilage_percent") or 0,
+        quality=found.get("quality_percent"),
+        unit=stock.unit,
+        window_hours=window_hours(stock),
+        weather=weather,
+    )
+
+
+def _sale_window(hours, category, quality, spoilage, visual_freshness=""):
+    ref = float(HOURS_REF[category])
+    cap = float(HOURS_MAX[category])
+    if hours is None:
+        hours = ref
+    hours = float(hours)
+    look = (visual_freshness or "").lower()
+    advanced = any(word in look for word in ("avanc", "mûr", "mur", "faible", "critique", "pourri", "avari"))
+    if quality >= 70 and spoilage <= 20 and not advanced and hours < ref * 0.85:
+        hours = ref
+    return min(max(hours, 1), cap)
+
+
+def stock_payload(stock, extra=None, analysis=None, include_plan=True):
+    clock = float(remaining_hours(stock))
+    window = window_hours(stock)
     data = {
         "id": str(stock.id),
         "product": stock.product,
@@ -33,8 +62,13 @@ def stock_payload(stock, extra=None, analysis=None, include_plan=True):
         "quarter": stock.quarter,
         "lat": stock.lat,
         "lng": stock.lng,
-        "hours_left": float(stock.hours_left),
-        "hours_ref": HOURS_REF.get(stock.category, 48),
+        "hours_left": clock,
+        "hours_ref": round(window, 2),
+        "hours_category_ref": HOURS_REF.get(stock.category, 48),
+        "remaining_label": format_span(clock),
+        "window_label": format_span(window),
+        "clock_zone": "Africa/Lome",
+        "clock_now": lome_now().isoformat(),
         "market_price": stock.market_price,
         "published_price": stock.published_price,
         "adresse_collecte": stock.adresse_collecte,
@@ -42,25 +76,30 @@ def stock_payload(stock, extra=None, analysis=None, include_plan=True):
         "status": stock.status,
         "expires_at": stock.expires_at.isoformat(),
     }
+    state = climate_state(stock, analysis=analysis)
     if include_plan:
-        data["conservation"] = conserve_plan(
-            stock.hours_left,
-            stock.category,
-            stock.qty_available,
-            stock.market_price,
-            spoilage=found.get("spoilage_percent") or 0,
-            quality=found.get("quality_percent"),
-            unit=stock.unit,
-        )
+        data["conservation"] = _conserve(stock, analysis=analysis, weather=state.get("weather"))
     if extra:
         data.update(extra)
-    state = climate_state(stock, analysis=analysis)
     data["hours_effective"] = state["hours_effective"]
     data["freshness_now"] = state["freshness_now"]
     data["channel"] = state["channel"]
     data["weather"] = state["weather"]
     data["published_price"] = state["published_price"]
+    data.update(_promo_fields(stock, state["published_price"]))
     return data
+
+
+def _promo_fields(stock, published):
+    from_price = stock.promo_from_price
+    cut = 0
+    if from_price and published and from_price > published:
+        cut = max(1, int(round((1 - published / from_price) * 100)))
+    return {
+        "promo": bool(stock.promo_applied_at),
+        "promo_from_price": int(from_price) if from_price else None,
+        "promo_cut": cut,
+    }
 
 
 ALLOWED_IMAGES = {"image/jpeg": "image/jpeg", "image/jpg": "image/jpeg", "image/png": "image/png", "image/webp": "image/webp"}
@@ -154,10 +193,6 @@ class AnalyzeLotView(APIView):
             reason = str(raw.get("reason") or "La photo ne montre pas un produit agricole.").strip()
             return Response({"detail": reason}, status=422)
         category = raw.get("category") if raw.get("category") in HOURS_REF else "autre"
-        hours = _number(raw.get("hours_left"), float)
-        if hours is None:
-            hours = float(HOURS_REF[category])
-        hours = min(max(hours, 1), float(HOURS_MAX[category]))
         confidence = _number(raw.get("confidence"), float)
         confidence = 0 if confidence is None else min(max(confidence, 0), 1)
         product = str(raw.get("product") or "Produit agricole").strip()[:120]
@@ -185,7 +220,13 @@ class AnalyzeLotView(APIView):
                 "aspects": aspects,
                 "reason": reason,
             }, status=422)
-        hours_ref = HOURS_REF[category]
+        hours = _sale_window(
+            _number(raw.get("hours_left"), float),
+            category,
+            quality,
+            spoilage,
+            str(raw.get("visual_freshness") or ""),
+        )
         payload = {
             "image_url": image_url,
             "image_public_id": public_id,
@@ -193,7 +234,8 @@ class AnalyzeLotView(APIView):
             "product": product,
             "category": category,
             "hours_left": round(hours, 1),
-            "hours_ref": hours_ref,
+            "hours_ref": round(hours, 1),
+            "hours_label": format_span(hours),
             "confidence": round(confidence, 2),
             "reason": reason,
             "printed_expiry": printed or None,
@@ -201,10 +243,12 @@ class AnalyzeLotView(APIView):
             "spoilage_percent": round(spoilage),
             "quality_percent": quality,
             "aspects": aspects,
-            "ratio": price_ratio(hours, hours_ref),
-            "bands": price_bands(hours_ref),
+            "ratio": price_ratio(hours, hours),
+            "bands": price_bands(hours),
             "disclaimer": "Note croisée : couleur, moisissure, fermeté, humidité, chocs, maturité et part vendable. Ce n’est pas une mesure de laboratoire.",
-            "conservation": conserve_plan(hours, category, 10, 0, spoilage=spoilage, quality=quality, unit="kg"),
+            "conservation": conserve_plan(
+                hours, category, 10, 0, spoilage=spoilage, quality=quality, unit="kg", window_hours=hours,
+            ),
         }
         analysis = AiAnalysis.objects.create(kind="freshness", payload=payload, seller=request.user)
         return Response({"id": str(analysis.id), **payload})
@@ -263,7 +307,7 @@ class StockListCreateView(APIView):
         if hours is None:
             return Response({"detail": "L'estimation de conservation est absente. Reprends la photo."}, status=400)
         hours = min(max(hours, 1), float(HOURS_MAX[category]))
-        price = stepped_price(market, hours, HOURS_REF[category])
+        price = stepped_price(market, hours, hours)
         now = timezone.now()
         stock = Stock.objects.create(
             seller=request.user,
@@ -335,6 +379,8 @@ class UpdateStockView(APIView):
             sync_lot(stock)
             if stock.status not in ("live", "partial"):
                 return Response({"detail": "Ce lot ne peut plus être modifié."}, status=400)
+            before_price = stock.published_price
+            before_market = stock.market_price
             new_initial = stock.qty_initial + (qty - stock.qty_available)
             if new_initial < qty:
                 new_initial = qty
@@ -351,12 +397,51 @@ class UpdateStockView(APIView):
             stock.qty_available = qty
             stock.qty_initial = new_initial
             stock.market_price = market
-            stock.published_price = stepped_price(market, stock.hours_left, HOURS_REF[category])
+            stock.published_price = stepped_price(market, float(remaining_hours(stock)), window_hours(stock))
+            apply_dump = data.get("apply_conservation") in (True, "true", "True", 1, "1")
+            if apply_dump or market < before_market:
+                stock.promo_applied_at = timezone.now()
+                if stock.promo_from_price is None:
+                    stock.promo_from_price = before_price
+            elif stock.promo_applied_at and market > before_market:
+                stock.promo_applied_at = None
+                stock.promo_from_price = None
             stock.status = "live" if new_initial == qty else "partial"
             stock.save(update_fields=[
                 "product", "category", "quarter", "lat", "lng", "adresse_collecte",
                 "qty_available", "qty_initial", "market_price", "published_price", "status",
+                "promo_applied_at", "promo_from_price",
             ])
+        analysis = AiAnalysis.objects.filter(stock=stock).first()
+        sync_lot(stock, analysis=analysis)
+        return Response(stock_payload(stock, analysis=analysis))
+
+
+class ApplyPromoView(APIView):
+    permission_classes = [IsSeller]
+
+    def post(self, request, stock_id):
+        with transaction.atomic():
+            stock = Stock.objects.select_for_update().filter(id=stock_id, seller=request.user).first()
+            if stock is None:
+                return Response({"detail": "Offre introuvable."}, status=404)
+            if stock.status not in ("live", "partial"):
+                return Response({"detail": "Ce lot ne peut plus être modifié."}, status=400)
+            analysis = AiAnalysis.objects.filter(stock=stock).first()
+            sync_lot(stock, analysis=analysis)
+            if stock.status not in ("live", "partial"):
+                return Response({"detail": "Ce lot ne peut plus être modifié."}, status=400)
+            before_pub = int(stock.published_price or 0)
+            before_market = int(stock.market_price or 0)
+            plan = _conserve(stock, analysis=analysis)
+            target = int(plan.get("dump_market_price") or before_market)
+            if target >= before_market:
+                target = max(1, int(round(before_market * 0.9)))
+            stock.market_price = target
+            if stock.promo_from_price is None:
+                stock.promo_from_price = before_pub or before_market
+            stock.promo_applied_at = timezone.now()
+            stock.save(update_fields=["market_price", "promo_applied_at", "promo_from_price"])
         analysis = AiAnalysis.objects.filter(stock=stock).first()
         sync_lot(stock, analysis=analysis)
         return Response(stock_payload(stock, analysis=analysis))
@@ -401,7 +486,9 @@ class PublicCatalogView(APIView):
             if stock.status not in ("live", "partial"):
                 continue
             state = climate_state(stock, analysis=analysis)
-            if state["channel"] != "classic":
+            if state["channel"] == "rotten":
+                continue
+            if state["channel"] != "classic" and not stock.promo_applied_at:
                 continue
             visible.append({
                 "id": str(stock.id),
@@ -411,8 +498,11 @@ class PublicCatalogView(APIView):
                 "qty_available": stock.qty_available,
                 "unit": stock.unit,
                 "quarter": stock.quarter,
-                "hours_left": float(stock.hours_left),
-                "hours_ref": HOURS_REF.get(stock.category, 48),
+                "hours_left": state["hours_left"],
+                "hours_ref": state["hours_window"],
+                "remaining_label": state["remaining_label"],
+                "window_label": state["window_label"],
+                "clock_zone": "Africa/Lome",
                 "market_price": stock.market_price,
                 "published_price": state["published_price"],
                 "expires_at": stock.expires_at.isoformat(),
@@ -422,7 +512,9 @@ class PublicCatalogView(APIView):
                 "freshness_now": state["freshness_now"],
                 "channel": state["channel"],
                 "weather": state["weather"],
+                **_promo_fields(stock, state["published_price"]),
             })
+        visible.sort(key=lambda row: (0 if row.get("promo") else 1, row["hours_left"]))
         return Response(visible)
 
 
@@ -451,9 +543,9 @@ class NearbyView(APIView):
             distance = haversine_km(buyer.lat, buyer.lng, stock.lat, stock.lng)
             if distance > radius:
                 continue
-            hours_ref = HOURS_REF.get(stock.category, 48)
+            hours_ref = state["hours_window"]
             score, phrase = score_offer(
-                distance, radius, state["hours_effective"], hours_ref,
+                distance, radius, state["hours_left"], hours_ref,
                 stock.qty_available, buyer.buyer_type, stock.category,
             )
             if state["channel"] == "transform":

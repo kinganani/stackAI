@@ -22,6 +22,8 @@ class Stock(models.Model):
     status = models.CharField(max_length=20, default="live")
     published_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
+    promo_applied_at = models.DateTimeField(null=True, blank=True)
+    promo_from_price = models.IntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
